@@ -1,3 +1,5 @@
+> **Sasha AI Workbench fork** — personal harness, routing, project files, backups, and connection tools for Open WebUI v0.12.4. Start with [custom/README.md](custom/README.md). Upstream Open WebUI and its license are retained below.
+
 # Open WebUI 👋
 
 ![GitHub stars](https://img.shields.io/github/stars/open-webui/open-webui?style=social)

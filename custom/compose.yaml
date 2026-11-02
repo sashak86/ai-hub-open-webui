@@ -1,0 +1,19 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.12.4-slim@sha256:41812075aede8ada8497cb2b71c76412978633eee72775bb77796f593d03b677
+    network_mode: host
+    environment:
+      HOST: 127.0.0.1
+      PORT: '3080'
+      WEBUI_AUTH: 'true'
+      ENABLE_SIGNUP: 'false'
+      HUB_CHAT_URL: http://127.0.0.1:8088
+    env_file: ./runtime/private.env
+    volumes:
+      - webui-data:/app/backend/data
+      - ./runtime/overrides/chunks/CqEczJQs.js:/app/build/_app/immutable/chunks/CqEczJQs.js:ro
+      - ./runtime/overrides/chunks/CNDyKy5F.js:/app/build/_app/immutable/chunks/CNDyKy5F.js:ro
+      - ./runtime/overrides/ai-hub:/app/build/ai-hub:ro
+    restart: unless-stopped
+volumes:
+  webui-data:

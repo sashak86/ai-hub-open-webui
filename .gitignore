@@ -311,3 +311,7 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# Sasha workbench runtime: contains private credentials, never commit.
+custom/runtime/
+custom/.venv/
