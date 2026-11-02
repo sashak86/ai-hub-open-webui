@@ -1,0 +1,86 @@
+{
+  "name": "Sasha AI Workbench for Open WebUI",
+  "version": "0.1.0",
+  "date": "2026-11-03",
+  "upstream": {
+    "repository": "https://github.com/open-webui/open-webui",
+    "tag": "v0.12.4",
+    "commit": "33c1978d5bad52a31df75ea55143025dfad18d16",
+    "image": "ghcr.io/open-webui/open-webui:v0.12.4-slim@sha256:41812075aede8ada8497cb2b71c76412978633eee72775bb77796f593d03b677"
+  },
+  "integration": {
+    "backend_revision": "56ddd1071a75f630c23da32bc8cbfb93a5ba1e9f",
+    "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
+    "ui_revision": "78d79c664e3d9b99e2d07a497b7dc312803c9ffd",
+    "workspace_revision": "d7c3d05",
+    "portable_adapters": [
+      "config.py",
+      "agent_bridge.py",
+      "standalone.py"
+    ],
+    "portability_changes": [
+      "Use current user home instead of private server paths.",
+      "Use loopback standalone bridge defaults and configured file origins.",
+      "Preserve upstream branding and license."
+    ]
+  },
+  "validation": {
+    "offline_tests": 28,
+    "pinned_preparation": "passed; image digest and reviewed chunk hashes checked; no service started",
+    "isolated_process_smoke": [
+      "startup",
+      "health",
+      "unauthorized_401",
+      "owner_project",
+      "raw_file_roundtrip",
+      "backup_zip",
+      "native_model_catalog"
+    ],
+    "secret_scan": "gitleaks 8.30.1: custom commit range, no leaks",
+    "production_modified_by_publication": false
+  },
+  "limitations": [
+    "No model weight training. Learning notes require explicit acceptance to become skills.",
+    "Automatic model routing is preflight; partial tool/output runs are not automatically replayed.",
+    "USD policy excludes paid providers whose maximum task cost is unknown; it is not provider billing enforcement.",
+    "API providers currently support streaming text, not native shell/file tools.",
+    "WebDAV and allowed local roots supported; SFTP/S3 not implemented.",
+    "WebDAV tested with HTTP fixtures; each real remote account needs its own connection test.",
+    "Accounts, API keys, TLS proxy and CLIs must be configured by the installation owner.",
+    "Projects have bounded code/content backups; excluded credentials require separate private backups."
+  ],
+  "sha256": {
+    "ARCHITECTURE.md": "3cda96a9c3a03c4a5b27f739fd19d2c9b100b5be5d4a87ea4fc4ecf7ae6419ca",
+    "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
+    "README.md": "5eaabc210360bb395f857146b96e13af6b3589b60ffc4093b57a422d2b085f3a",
+    "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
+    "bridge/hub_console/chat_billing.py": "f9422f520b5b8e273752b30980de90e0998ff256b73db8769737e4eb20cac8b3",
+    "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
+    "bridge/hub_console/chat_harness.py": "9e765fbcbb3ff6d31e4b5cf12ca21fd78c991e8c3421e458c8090960132af7d5",
+    "bridge/hub_console/chat_jobs.py": "bb5b1adb17d40c472c663964da0bc06ee7c68151d6eb6d7b275d3672c521ebba",
+    "bridge/hub_console/chat_providers.py": "530b77bb9f1c961481b4627d99b52ab9bec7d6f7718d811d824826c0c4bd766b",
+    "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
+    "bridge/hub_console/chat_worker.py": "51c5cd527523cd21ea309984a55dc5221574b2437bf90ec057ea854b2f230c53",
+    "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
+    "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
+    "bridge/hub_console/standalone.py": "e67c101387a41012d67527711c7dfe9a022e70af74590692a56daa64cb7a5c31",
+    "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
+    "compose.yaml": "93ed3ac28af5f6eb3e75989ec9b80276bb72089304b50b0318dc19b60ebaba70",
+    "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
+    "deploy/chat_pipe.py": "6791a22ee2a80d93d9c444410fbbfe319bd9775d5710b03f454eb8e4ac7abbf7",
+    "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
+    "deploy/extensions-ui.js": "6772d1ccf50c0f1a84ea9f5ff58f18bd44c5635fe1baafc2a167e386ca3d6b64",
+    "deploy/harness-ui.js": "b9fb10ad4caabcf01ee826ab409cf001e49274f428203427ae71b6ea464e648a",
+    "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
+    "deploy/patch-webui-queue.py": "c9bbf943d8191ef068e0277f543a4ed5b3ee0e83bd20a22b53ed41432b7a0273",
+    "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
+    "prepare.py": "c0d91218e7a8d37c73f0c355a440bf05894e9e0b3ed7e18a9aca21efe66ca842",
+    "requirements.txt": "ae89c887ee7f184c91bc6198f6ad7bd10f5d26dcc5713caaa49ce4399ddbf744",
+    "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
+    "tests/test_standalone.py": "d34455b7eacb85e02a76bb85d7fe96d3ad1a2346dec4c8342a878fd2be80da8e",
+    "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
+  }
+}

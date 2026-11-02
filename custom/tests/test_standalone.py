@@ -88,17 +88,20 @@ def test_configured_origin_and_input_body_cap(client,monkeypatch):
     response=client.put('/v1/harness/settings',content=b'x'*600000)
     assert response.status_code==413
 
-def test_connected_api_models_get_owner_only_native_presets(client,monkeypatch):
+@pytest.mark.parametrize('role',['admin','user'])
+def test_connected_api_models_get_owner_only_native_presets(client,monkeypatch,role):
     import httpx
     from hub_console import chat_harness
-    original=client.app.state.http;records=[]
+    original=client.app.state.http;records=[];creation_auth=[]
+    monkeypatch.setenv('SASHA_WORKBENCH_ALLOWED_USERS','preset-owner')
     async def handler(request):
-        if request.url.path=='/api/v1/auths/':return httpx.Response(200,json={'id':'preset-owner','role':'admin'})
+        if request.url.path=='/api/v1/auths/':return httpx.Response(200,json={'id':'preset-owner','role':role})
+        if request.url.path=='/api/v1/auths/signin':return httpx.Response(200,json={'token':'synthetic-service-admin-session'})
         if request.url.path=='/api/models':return httpx.Response(200,json={'data':[{'id':'ai_hub.codex/offline'}]})
         if request.method=='GET':return httpx.Response(404)
         if request.url.path=='/api/v1/models/create':
             import json
-            records.append(json.loads(request.content));return httpx.Response(200,json={'ok':True})
+            records.append(json.loads(request.content));creation_auth.append(request.headers['authorization']);return httpx.Response(200,json={'ok':True})
         return httpx.Response(404)
     async def connected(request,provider,body):return {'ok':True,'status':'connected','models':['test-model']}
     monkeypatch.setattr(chat_harness,'connect',connected)
@@ -108,4 +111,5 @@ def test_connected_api_models_get_owner_only_native_presets(client,monkeypatch):
     assert result.json()['model_records']==[records[0]['id']]
     assert records[0]['params']['custom_params']['hub_api_model']=='api/openai/test-model'
     assert records[0]['access_grants']==[{'principal_type':'user','principal_id':'preset-owner','permission':'read'}]
+    assert creation_auth==['Bearer browser-test' if role=='admin' else 'Bearer synthetic-service-admin-session']
     client.app.state.http=original

@@ -131,8 +131,15 @@ def create_app():
             if data.get('ok') and data.get('status')=='connected' and data.get('models'):
                 provider=path.rsplit('/',1)[-1]
                 if provider not in {'codex','claude'}:
-                    try:data['model_records']=await register_owner_models(app.state.http,browser_token,user,hashlib.sha256(user['id'].encode()).hexdigest(),provider,data['models'],upstream)
-                    except (httpx.HTTPError,ValueError,KeyError):data['model_registration_warning']='Connection verified; native model-list registration needs Open WebUI model creation permission. Harness routing remains available.'
+                    try:
+                        model_authorization=browser_token
+                        if user.get('role')!='admin':
+                            # The caller already passed the explicit user allowlist.
+                            # The service admin only creates an owner-read-only preset.
+                            login=await app.state.http.post(upstream+'/api/v1/auths/signin',json={'email':os.environ.get('WEBUI_ADMIN_EMAIL',''),'password':os.environ.get('WEBUI_ADMIN_PASSWORD','')},timeout=15)
+                            login.raise_for_status();model_authorization='Bearer '+login.json()['token']
+                        data['model_records']=await register_owner_models(app.state.http,model_authorization,user,hashlib.sha256(user['id'].encode()).hexdigest(),provider,data['models'],upstream)
+                    except (httpx.HTTPError,ValueError,KeyError):data['model_registration_warning']='Connection verified, but native private model-list registration failed. Harness routing remains available; check the server Open WebUI administrator connection.'
             return Response(json.dumps(data),media_type='application/json',headers={'Cache-Control':'no-store'})
         response_headers={k:v for k,v in result.headers.items() if k.lower() in {'content-type','content-disposition'}}
         return Response(result.content,status_code=result.status_code,headers={**response_headers,'Cache-Control':'no-store'})
