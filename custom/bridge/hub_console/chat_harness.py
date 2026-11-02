@@ -70,10 +70,15 @@ def root(request):
 def locked(folder):
     folder.mkdir(mode=0o700,parents=True,exist_ok=True)
     with (folder/'state.lock').open('a') as handle:
-        os.chmod(handle.name,0o600);fcntl.flock(handle,fcntl.LOCK_EX)
+        os.chmod(handle.name,0o600)
+        if os.geteuid()==0:
+            owner=folder.stat();os.chown(handle.name,owner.st_uid,owner.st_gid)
+        fcntl.flock(handle,fcntl.LOCK_EX)
         state=load(folder/'state.json',{})
         yield state
         atomic(folder/'state.json',state)
+        if os.geteuid()==0:
+            owner=folder.stat();os.chown(folder/'state.json',owner.st_uid,owner.st_gid)
 
 
 def mutate(request,fn):
@@ -121,7 +126,10 @@ def clean_policy(value):
 def audit(folder,action,**data):
     # Metadata only. Never include prompts, credentials or source content.
     with (folder/'audit.jsonl').open('a') as f:
-        os.chmod(f.name,0o600);f.write(json.dumps(dict(at=time.time(),action=action,**data))+'\n')
+        os.chmod(f.name,0o600)
+        if os.geteuid()==0:
+            owner=folder.stat();os.chown(f.name,owner.st_uid,owner.st_gid)
+        f.write(json.dumps(dict(at=time.time(),action=action,**data))+'\n')
 
 
 def _home(request):return Path(pwd.getpwnam(request.app.state.settings.desktop_user).pw_dir)
@@ -147,7 +155,8 @@ def api_models(request):
     for provider,row in load(root(request)/'connections.json',{}).items():
         if not row.get('api_key') or provider in ('codex','claude'):continue
         for model in row.get('models',[]):
-            out.append(dict(id='api/'+provider+'/'+model,name=model+' · '+PROVIDERS[provider]['name'],provider='api',available=True,connected=True,capabilities={'text':True,'image':False,'tools':False},limits={}))
+            native_id='ai_hub.owner-'+request.headers['x-webui-user'][:16]+'-'+hashlib.sha256((provider+'/'+model).encode()).hexdigest()[:16]
+            out.append(dict(id='api/'+provider+'/'+model,native_id=native_id,name=model+' · '+PROVIDERS[provider]['name'],provider='api',available=True,connected=True,capabilities={'text':True,'image':False,'tools':False},limits={}))
     return out
 
 
@@ -454,7 +463,16 @@ def write_handoff(folder,run_id):
             for key in ('env','headers'):
                 for secret in cfg.get(key,{}).values():
                     if isinstance(secret,str) and len(secret)>=8:output=output.replace(secret,'[секрет скрыт]')
-    file=folder/(run_id+'.md');file.write_text(output);os.chmod(file,0o600)
+    file=folder/(run_id+'.md')
+    temporary=folder/(run_id+'.'+uuid.uuid4().hex+'.tmp')
+    try:
+        with temporary.open('x') as stream:
+            os.chmod(temporary,0o600)
+            if os.geteuid()==0:
+                owner=folder.stat();os.chown(temporary,owner.st_uid,owner.st_gid)
+            stream.write(output);stream.flush();os.fsync(stream.fileno())
+        os.replace(temporary,file)
+    finally:temporary.unlink(missing_ok=True)
 
 
 async def prepare(request,body,desc,rows):

@@ -113,3 +113,23 @@ def test_connected_api_models_get_owner_only_native_presets(client,monkeypatch,r
     assert records[0]['access_grants']==[{'principal_type':'user','principal_id':'preset-owner','permission':'read'}]
     assert creation_auth==['Bearer browser-test' if role=='admin' else 'Bearer synthetic-service-admin-session']
     client.app.state.http=original
+
+def test_personal_api_alias_matches_owner_scoped_native_preset(client):
+    import asyncio,httpx
+    from hub_console import chat_worker as worker
+    from hub_console.standalone import register_owner_models
+    assert client.post('/v1/harness/connect/openai',json={'action':'save','api_key':'synthetic-api-key','auth_type':'api_key'}).status_code==200
+    folder=next((client.app.state.chat_jobs_root/'harness').iterdir())
+    state=worker.load(folder/'connections.json');state['openai']['models']=['offline-model'];worker.atomic(folder/'connections.json',state)
+    owned=next(row for row in client.get('/v1/harness/models').json()['data'] if row['id']=='api/openai/offline-model')
+    class Native:
+        async def get(self,url,**kwargs):
+            data={'data':[{'id':'ai_hub.codex/offline'}]} if url.endswith('/api/models') else {}
+            return httpx.Response(200 if data else 404,json=data,request=httpx.Request('GET',url))
+        async def post(self,url,**kwargs):
+            assert kwargs['json']['access_grants']==[{'principal_type':'user','principal_id':'offline-owner','permission':'read'}]
+            return httpx.Response(200,json=kwargs['json'],request=httpx.Request('POST',url))
+    registered=asyncio.run(register_owner_models(Native(),'Bearer synthetic',{'id':'offline-owner'},client.headers['X-WebUI-User'],'openai',['offline-model'],'http://native'))
+    assert owned['native_id']==registered[0]
+    client.headers['X-WebUI-User']='b'*64
+    assert all(row['id']!='api/openai/offline-model' for row in client.get('/v1/harness/models').json()['data'])

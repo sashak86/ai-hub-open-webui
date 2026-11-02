@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "date": "2026-11-03",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -9,9 +9,9 @@
     "image": "ghcr.io/open-webui/open-webui:v0.12.4-slim@sha256:41812075aede8ada8497cb2b71c76412978633eee72775bb77796f593d03b677"
   },
   "integration": {
-    "backend_revision": "56ddd1071a75f630c23da32bc8cbfb93a5ba1e9f",
+    "backend_revision": "92d778a67a2f0752106d11175f117be522fa752f",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "78d79c664e3d9b99e2d07a497b7dc312803c9ffd",
+    "ui_revision": "a6caf312322d0cf9e2ff61063ed51d3f587f8670",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -25,7 +25,7 @@
     ]
   },
   "validation": {
-    "offline_tests": 28,
+    "offline_tests": 29,
     "pinned_preparation": "passed; image digest and reviewed chunk hashes checked; no service started",
     "isolated_process_smoke": [
       "startup",
@@ -37,7 +37,11 @@
       "native_model_catalog"
     ],
     "secret_scan": "gitleaks 8.30.1: custom commit range, no leaks",
-    "production_modified_by_publication": false
+    "production_modified_by_publication": false,
+    "integrated_backend_tests": 1029,
+    "integrated_backend_skipped": 1,
+    "integrated_final_delta_tests": 13,
+    "installed_ui_acceptance": "320/390/1280 and mobile keyboard450; native personal model USD mapping passed by separate UI executor"
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -57,7 +61,7 @@
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_billing.py": "f9422f520b5b8e273752b30980de90e0998ff256b73db8769737e4eb20cac8b3",
     "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
-    "bridge/hub_console/chat_harness.py": "9e765fbcbb3ff6d31e4b5cf12ca21fd78c991e8c3421e458c8090960132af7d5",
+    "bridge/hub_console/chat_harness.py": "f03e1549e543f5d34d071bf4e6322bbbb3e377ae0fc6f5bcb2d057f144e20802",
     "bridge/hub_console/chat_jobs.py": "bb5b1adb17d40c472c663964da0bc06ee7c68151d6eb6d7b275d3672c521ebba",
     "bridge/hub_console/chat_providers.py": "530b77bb9f1c961481b4627d99b52ab9bec7d6f7718d811d824826c0c4bd766b",
     "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
@@ -70,8 +74,8 @@
     "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
     "deploy/chat_pipe.py": "6791a22ee2a80d93d9c444410fbbfe319bd9775d5710b03f454eb8e4ac7abbf7",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
-    "deploy/extensions-ui.js": "6772d1ccf50c0f1a84ea9f5ff58f18bd44c5635fe1baafc2a167e386ca3d6b64",
-    "deploy/harness-ui.js": "b9fb10ad4caabcf01ee826ab409cf001e49274f428203427ae71b6ea464e648a",
+    "deploy/extensions-ui.js": "66c34303c315dd2b1982a8d879f844fe3c7e250e18f82c8fd2d5c0f80fe27143",
+    "deploy/harness-ui.js": "9cc6c07bc39296857c25fa084cdaeec3241076ff48d95b9b33a2d2c07e3763db",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
     "deploy/patch-webui-queue.py": "c9bbf943d8191ef068e0277f543a4ed5b3ee0e83bd20a22b53ed41432b7a0273",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
@@ -80,7 +84,7 @@
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
-    "tests/test_standalone.py": "d34455b7eacb85e02a76bb85d7fe96d3ad1a2346dec4c8342a878fd2be80da8e",
+    "tests/test_standalone.py": "36f37e345d884015244f0ad82f427453efe5dfcdb94abe724424dbc8e9bf0844",
     "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
   }
 }
