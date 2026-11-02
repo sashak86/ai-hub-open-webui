@@ -141,6 +141,8 @@ def connections(request):
 
 
 def api_models(request):
+    # Native manifold pipes() has no owner; its shared list must stay secret-free.
+    if not re.fullmatch('[a-f0-9]{64}',request.headers.get('x-webui-user','')):return []
     out=[]
     for provider,row in load(root(request)/'connections.json',{}).items():
         if not row.get('api_key') or provider in ('codex','claude'):continue
@@ -342,8 +344,8 @@ def select_extensions(request,policy,query):
     return existing
 
 
-def choose_model(policy,requested,rows,quota,text_value,has_attachments=False):
-    allowed=policy['models'] or [requested]
+def choose_model(policy,requested,rows,quota,text_value,has_attachments=False,requires_tools=False):
+    allowed=policy['models'] or ([row['id'] for row in rows] if policy['mode']=='auto' else [requested])
     complexity=policy['complexity']
     if complexity=='auto':complexity='complex' if len(text_value)>1500 or re.search(r'архитект|реализ|диагност|рефактор|architecture|implement',text_value,re.I) else 'simple'
     candidates=[];rejected=[]
@@ -354,6 +356,7 @@ def choose_model(policy,requested,rows,quota,text_value,has_attachments=False):
         if ident not in allowed:continue
         reason=None
         if not row.get('available') or row.get('connected') is False:reason='not_connected_or_unavailable'
+        if requires_tools and row.get('capabilities',{}).get('tools') is False:reason='tools_required'
         context=row.get('limits',{}).get('context')
         if isinstance(context,int) and estimated_tokens>context:reason='context_capacity'
         if has_attachments and row.get('capabilities',{}).get('image') is False:reason='attachments_not_supported'
@@ -435,7 +438,7 @@ def checkpoint(folder,run_id,status,**extra):
 
 def write_handoff(folder,run_id):
     run=load(folder/'state.json',{}).get('runs',{}).get(run_id,{})
-    lines=['# Передача задачи',f"Цель: {run.get('title','')}",f"Статус: {run.get('status','')}",f"Модель: {run.get('model','')}",'','## План']
+    lines=['# Передача задачи',f"Цель: {run.get('title','')}",f"Статус: {run.get('status','')}",f"Модель: {run.get('model','')}",f"Рабочая папка: {run.get('cwd','')}",'','## Файлы',json.dumps(run.get('attachments',[]),ensure_ascii=False,indent=2),'','## План']
     lines += [f"- [{s['status']}] {s['title']}" for s in run.get('steps',[])]
     lines+=['','## Контрольные точки',json.dumps(run.get('checkpoints',[]),ensure_ascii=False,indent=2),'','## Сохранённый результат',run.get('handoff',''),'','## Продолжение','Прочитайте выполненные действия и проверьте текущее состояние. Не повторяйте действия с побочными эффектами. Продолжайте с первого незавершённого шага.']
     output='\n'.join(lines)
@@ -458,7 +461,7 @@ async def prepare(request,body,desc,rows):
     policy=settings(request,body['chat_id'])
     if not policy['enabled']:return
     quota=await __import__('hub_console.chat_quotas',fromlist=['snapshot']).snapshot(request)
-    routing=choose_model(policy,desc['model'],models(request),quota['providers'],desc['text']+'\n'+json.dumps(desc.get('history',[]),ensure_ascii=False),bool(desc.get('attachments')))
+    routing=choose_model(policy,desc['model'],models(request),quota['providers'],desc['text']+'\n'+json.dumps(desc.get('history',[]),ensure_ascii=False),bool(desc.get('attachments')),bool(policy['project_id']))
     desc['model']=routing['model']
     state=load(root(request)/'state.json',{})
     chat_hash=hashlib.sha256(body['chat_id'].encode()).hexdigest()
@@ -471,9 +474,9 @@ async def prepare(request,body,desc,rows):
     folder=root(request);project=policy['project_id'] or 'chat:'+run['chat_hash']
     state=load(folder/'state.json',{})
     memory=[r for r in state.get('memory',[]) if r.get('project_id')==project and r.get('trusted')][-20:]
-    previous=[r for r in state.get('runs',{}).values() if r.get('id')!=run['id'] and (r.get('project_id')==policy['project_id'] if policy['project_id'] else r.get('chat_hash')==run['chat_hash']) and r.get('status') in ('failed','interrupted','cancelled') and r.get('handoff')]
+    previous=[r for r in state.get('runs',{}).values() if r.get('id')!=run['id'] and (r.get('project_id')==policy['project_id'] if policy['project_id'] else r.get('chat_hash')==run['chat_hash']) and r.get('status') in ('failed','interrupted','cancelled')]
     if previous:
-        last=max(previous,key=lambda r:r['updated_at']);memory.append(dict(text='Сохранённая передача незавершённой задачи, не повторяй выполненные действия:\n'+last['handoff'][-8000:],kind='handoff'))
+        last=max(previous,key=lambda r:r['updated_at']);memory.append(dict(text='Сохранённая передача незавершённой задачи, не повторяй выполненные действия. Прочитай файл передачи '+str(folder/(last['id']+'.md'))+'. Последние checkpoints и ссылки на private job events:\n'+json.dumps(last.get('checkpoints',[])[-5:],ensure_ascii=False)+'\n'+last.get('handoff','')[-8000:],kind='handoff'))
     desc['harness']=dict(root=str(folder),run_id=run['id'],project_id=project,policy=policy,routing=routing,memory=memory,steps=run['steps'])
     if policy['project_id']:
         from .chat_workspace import project_context
@@ -497,7 +500,7 @@ async def prepare(request,body,desc,rows):
     from .chat_extensions import digest
     desc['extensions_hash']=digest(desc['extensions'])
     desc['connection_root']=str(folder)
-    def update(s):s['runs'][run['id']].update(model=desc['model'],job_id=desc['id'],routing=routing)
+    def update(s):s['runs'][run['id']].update(model=desc['model'],job_id=desc['id'],routing=routing,request_text=desc['text'],history=desc.get('history',[]),cwd=desc['cwd'],attachments=desc.get('attachments',[]),job_path=str(Path(desc.get('cwd',''))))
     mutate(request,update);audit(folder,'route',run_id=run['id'],model=desc['model'],requested_model=routing['requested_model'])
 
 
@@ -529,7 +532,7 @@ def finish(desc,events,status,error_code=None):
         if steps is not None:
             with locked(folder) as state:
                 if run_id in state.get('runs',{}):state['runs'][run_id].update(steps=steps,default_plan=False)
-    checkpoint(folder,run_id,status,job_id=desc['id'],handoff=output,error_code=error_code,next_step='Проверьте сохранённый результат; продолжите с незавершённого шага.' if status!='completed' else 'Задача завершена; используйте результат и проверьте при необходимости.')
+    checkpoint(folder,run_id,status,job_id=desc['id'],job_folder=str(events.folder),events_file=str(events.folder/'events.jsonl'),side_effects=events.side_effects,handoff=output,usage=events.state.get('usage',{}),error_code=error_code,next_step='Проверьте сохранённый результат; продолжите с незавершённого шага.' if status!='completed' else 'Задача завершена; используйте результат и проверьте при необходимости.')
     if status=='completed' and h['policy'].get('learn'):
         learned=load(events.folder/'learning.json',{})
         if isinstance(learned,dict) and isinstance(learned.get('content'),str) and 0<len(learned['content'])<=32000 and isinstance(learned.get('title'),str):

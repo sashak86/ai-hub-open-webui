@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install/update the reviewed local Pipe through WebUI's authenticated admin API.
 
-Run sudo python3 .../install-chat-pipe.py. No credentials or chat bodies are printed.
+Run as the same normal user as the standalone bridge: python3 custom/deploy/install-chat-pipe.py. No credentials or chat bodies are printed.
 The function is idempotent; private backup contains only previous function/model config.
 """
 import json

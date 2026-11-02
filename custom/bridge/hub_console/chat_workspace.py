@@ -36,7 +36,7 @@ def name(value):
     if not isinstance(value,str) or not value.strip() or len(value)>160 or any(c in value for c in '/\\\x00') or value in {'.','..'}:fail()
     return value.strip()
 def relative(value=''):
-    if not isinstance(value,str) or '\\' in value or '\x00' in value:fail()
+    if not isinstance(value,str) or len(value)>4096 or '\\' in value or '\x00' in value:fail()
     p=PurePosixPath(value)
     if p.is_absolute() or '..' in p.parts:fail()
     return p
@@ -70,7 +70,9 @@ def save(request,data):
 def locked(request):
     p=folder(request)/'registry.lock'
     with p.open('a') as h:
-        os.chmod(p,0o600);own_path(p,request);fcntl.flock(h,fcntl.LOCK_EX)
+        os.chmod(p,0o600);own_path(p,request)
+        try:fcntl.flock(h,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:fail('Другая операция с проектами ещё выполняется',409)
         data=read(request)
         yield data
         save(request,data)
@@ -290,8 +292,8 @@ def install(app,owner_setup):
             if value.get('import_path'):
                 imported=Path(local_allow(value['import_path']))
                 sid=uuid.uuid4().hex
-                data['storages'].append({'id':sid,'name':row['name']+' (импорт)','type':'local','path':str(imported)})
-                row.update(folder='',storage_id=sid,imported=True)
+                data['storages'].append({'id':sid,'name':row['name']+' (импорт)','type':'local','path':str(imported),'project_import':True})
+                row.update(folder='',storage_id=sid,imported=True,physical_folder=imported.name)
             else:path.mkdir(mode=0o700);own_path(path,request)
             data['projects'].append(row)
         audit(request,'create_project',project=ident);return row
@@ -300,19 +302,35 @@ def install(app,owner_setup):
     @app.patch('/v1/chat-workspace/projects/{ident}')
     async def update(request:Request,ident:str):
         auth(request);value=await json_body(request)
-        with locked(request) as data:
-            row=lookup(data['projects'],ident)
-            if 'folder' in value or 'storage_id' in value:
-                if row.get('imported'):fail('Импортированная папка привязана к внешнему хранилищу; перемещайте файлы внутри неё, имя проекта менять можно',409)
-                busy(request,row,check_process=True)
-                old=project_path(request,data,row);new_folder=name(value.get('folder',row['folder']));new_storage=value.get('storage_id',row['storage_id']);target=safe(storage_root(request,data,new_storage),new_folder)
-                if target!=old:
-                    if target.exists():fail('Папка назначения уже существует',409)
-                    if target.resolve().is_relative_to(old.resolve()):fail('Нельзя переместить папку в себя')
-                    await asyncio.to_thread(shutil.move,str(old),str(target))
-                row.update(folder=new_folder,storage_id=new_storage)
-            if 'name' in value:row['name']=name(value['name'])
-        audit(request,'update_project',project=ident);return row
+        def transaction():
+            with locked(request) as data:
+                row=lookup(data['projects'],ident)
+                if 'folder' in value or 'storage_id' in value:
+                    busy(request,row,check_process=True)
+                    old=project_path(request,data,row)
+                    new_storage=value.get('storage_id',row['storage_id'])
+                    new_folder=name(value.get('folder',row.get('physical_folder') or row['folder']))
+                    same_import=row.get('imported') and new_storage==row['storage_id']
+                    if same_import:
+                        # Sibling rename needs the parent explicitly authorized, not just the old root.
+                        parent=Path(local_allow(str(old.parent)))
+                        target=safe(parent,new_folder)
+                    else:target=safe(storage_root(request,data,new_storage),new_folder)
+                    if target!=old:
+                        if target.exists():fail('Папка назначения уже существует',409)
+                        if target.resolve().is_relative_to(old.resolve()):fail('Нельзя переместить папку в себя')
+                        shutil.move(str(old),str(target))
+                    if same_import:
+                        lookup(data['storages'],row['storage_id'])['path']=str(target)
+                        row.update(physical_folder=new_folder)
+                    else:
+                        old_storage=row['storage_id']
+                        if row.get('imported'):
+                            data['storages']=[storage for storage in data['storages'] if storage['id']!=old_storage or not storage.get('project_import')]
+                        row.update(folder=new_folder,storage_id=new_storage,imported=False,physical_folder=new_folder)
+                if 'name' in value:row['name']=name(value['name'])
+            audit(request,'update_project',project=ident);return row
+        return await asyncio.to_thread(transaction)
     @app.get('/v1/chat-workspace/projects/{ident}/files')
     async def files(request:Request,ident:str,path:str=''):
         auth(request);data=read(request);root=project_path(request,data,lookup(data['projects'],ident));p=safe(root,path,True)
@@ -464,7 +482,9 @@ def install(app,owner_setup):
     async def export(request:Request,ident:str,backup_id:str):
         auth(request);value=await json_body(request);data=read(request);lookup(data['projects'],ident);lookup(backup_list(request,ident),backup_id);s=lookup(data['storages'],value.get('storage_id'))
         p=folder(request)/'backups'/ident/(backup_id+'.zip');filename='project-'+ident+'-'+backup_id+'.zip'
-        if s['type']=='webdav':result=await webdav(s,'PUT',filename,p.read_bytes())
+        if s['type']=='webdav':
+            if p.stat().st_size>LIMIT:fail('Архив превышает лимит удалённой передачи 32 MiB',413)
+            result=await webdav(s,'PUT',filename,p.read_bytes())
         else:
             target=safe(Path(s['path']),filename);await asyncio.to_thread(shutil.copyfile,p,target);result={'ok':True}
         audit(request,'export_backup',project=ident,backup=backup_id,storage=s['id']);return result

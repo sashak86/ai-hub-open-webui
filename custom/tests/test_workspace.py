@@ -75,7 +75,7 @@ def test_existing_import_is_scoped_and_never_moved(client,tmp_path,monkeypatch):
     ident=r.json()['id'];base='/v1/chat-workspace/projects/'+ident
     assert client.get(base+'/file?path=hello').content==b'old'
     assert client.get(base+'/file?path=../private').status_code==422
-    assert client.patch(base,json={'folder':'moved'}).status_code==409
+    assert client.patch(base,json={'folder':'moved'}).status_code==422
     assert imported.exists()
     assert client.patch(base,json={'name':'Rename display'}).status_code==200
 
@@ -134,3 +134,23 @@ def test_invalid_payload_and_missing_files_are_safe_errors(client):
     assert client.post('/v1/chat-workspace/storages',json={'name':'x','type':'local','path':None}).status_code==422
     ident=project(client)
     assert client.post('/v1/chat-workspace/projects/'+ident+'/files',json={'action':'delete','path':'missing'}).status_code==404
+
+def test_registry_contention_returns_conflict_without_blocking_event_loop(client):
+    import fcntl
+    ident=project(client)
+    registry=next((client.app.state.chat_jobs_root/'workspace').glob('*/registry.lock'))
+    with registry.open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        assert client.patch('/v1/chat-workspace/projects/'+ident,json={'name':'busy'}).status_code==409
+        assert client.get('/v1/chat-workspace').status_code==200
+
+def test_imported_explicit_physical_rename_and_move_with_parent_allowlist(client,tmp_path,monkeypatch):
+    parent=tmp_path/'allowed';parent.mkdir();imported=parent/'existing';imported.mkdir();(imported/'file.txt').write_text('content')
+    monkeypatch.setenv('AI_HUB_WORKSPACE_ROOTS',str(parent))
+    row=client.post('/v1/chat-workspace/projects',json={'name':'Imported','import_path':str(imported)}).json();base='/v1/chat-workspace/projects/'+row['id']
+    renamed=client.patch(base,json={'folder':'renamed'});assert renamed.status_code==200,renamed.text
+    assert not imported.exists() and (parent/'renamed/file.txt').read_text()=='content'
+    assert client.get(base+'/file?path=file.txt').content==b'content'
+    moved=client.patch(base,json={'folder':'moved','storage_id':'managed'});assert moved.status_code==200,moved.text
+    assert not (parent/'renamed').exists()
+    assert client.get(base+'/file?path=file.txt').content==b'content'

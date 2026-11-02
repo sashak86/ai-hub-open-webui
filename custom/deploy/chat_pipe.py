@@ -94,7 +94,7 @@ async def collect_attachments(files, images, user):
         if isinstance(url, str) and not url.startswith('data:'):
             parts = urlsplit(url)
             match = re.fullmatch(r'/api/v1/files/([^/]+)/content', parts.path)
-            trusted_origins = set(os.environ.get('HUB_PUBLIC_ORIGINS','127.0.0.1:8088,localhost:8088').split(','))
+            trusted_origins = {urlsplit(v.strip()).netloc or v.strip() for v in os.environ.get('HUB_PUBLIC_ORIGINS','127.0.0.1:8088,localhost:8088').split(',')}
             if match and (not parts.netloc or (parts.scheme in {'http','https'} and parts.netloc in trusted_origins)):
                 if match[1] not in seen:
                     extra = await collect_attachments([{'id': match[1]}], [], user)
@@ -228,13 +228,13 @@ class Pipe:
         message_id = metadata.get('message_id')
         queued_user_id = metadata.get('user_message_id', '')
         if isinstance(queued_user_id, str) and queued_user_id.startswith('hubq-') and not metadata.get('regeneration_message_id'):
-            message_id = 'queue:' + queued_user_id + ':' + body.get('model', '').split('.', 1)[-1]
+            message_id = 'queue:' + queued_user_id + ':' + (body.get('hub_api_model') or body.get('model', '').split('.', 1)[-1])
         if not isinstance(chat_id, str) or not isinstance(message_id, str):
             raise ValueError('Сохраните чат перед отправкой агенту.')
         text, images = text_and_images(body.get('messages', []))
         history = visible_history(body.get('messages', []))
         attachments = await collect_attachments(__files__, images, __user__)
-        model = body.get('model', '').split('.', 1)[-1]
+        model = (body.get('hub_api_model') or body.get('model', '').split('.', 1)[-1])
         if not text.strip() and not attachments:
             raise ValueError('Добавьте сообщение или файл.')
         headers = {'X-WebUI-User': owner}

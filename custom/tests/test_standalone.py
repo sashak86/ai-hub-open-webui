@@ -64,3 +64,48 @@ def test_browser_proxy_validates_native_jwt_and_preserves_binary(client):
     assert client.get('/ai-hub/api/workspace',headers={'Authorization':'Bearer invalid'}).status_code==401
     assert client.get('/ai-hub/api/workspace',headers={**headers,'Origin':'https://evil.invalid'}).status_code==403
     client.app.state.http=original
+
+def test_exact_native_pipe_discovery_without_browser_owner_header(client,monkeypatch):
+    import asyncio,importlib.util,httpx
+    from hub_console import agent_bridge,chat_providers
+    monkeypatch.setattr(agent_bridge,'available_models',lambda request:[{'id':'model/codex/offline','name':'Offline Codex'}])
+    monkeypatch.setattr(chat_providers,'discover',lambda:[])
+    del client.headers['X-WebUI-User']
+    response=client.get('/v1/jobs/models');assert response.status_code==200,response.text
+    assert any(row['id']=='codex/offline' for row in response.json()['data'])
+    source=Path(__file__).resolve().parents[1]/'deploy/chat_pipe.py'
+    spec=importlib.util.spec_from_file_location('public_chat_pipe',source);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    pipe=module.Pipe()
+    monkeypatch.setattr(pipe,'client',lambda:httpx.AsyncClient(transport=httpx.ASGITransport(app=client.app),base_url='http://bridge',headers={'Authorization':client.headers['Authorization']}))
+    rows=asyncio.run(pipe.pipes())
+    assert any(row['id']=='codex/offline' for row in rows)
+
+def test_configured_origin_and_input_body_cap(client,monkeypatch):
+    from hub_console.standalone import valid_origin
+    assert not valid_origin('https://not-allowed.invalid','http://localhost:8088')
+    monkeypatch.setenv('HUB_PUBLIC_ORIGINS','https://workbench.example.com')
+    assert valid_origin('https://workbench.example.com','http://localhost:8088')
+    response=client.put('/v1/harness/settings',content=b'x'*600000)
+    assert response.status_code==413
+
+def test_connected_api_models_get_owner_only_native_presets(client,monkeypatch):
+    import httpx
+    from hub_console import chat_harness
+    original=client.app.state.http;records=[]
+    async def handler(request):
+        if request.url.path=='/api/v1/auths/':return httpx.Response(200,json={'id':'preset-owner','role':'admin'})
+        if request.url.path=='/api/models':return httpx.Response(200,json={'data':[{'id':'ai_hub.codex/offline'}]})
+        if request.method=='GET':return httpx.Response(404)
+        if request.url.path=='/api/v1/models/create':
+            import json
+            records.append(json.loads(request.content));return httpx.Response(200,json={'ok':True})
+        return httpx.Response(404)
+    async def connected(request,provider,body):return {'ok':True,'status':'connected','models':['test-model']}
+    monkeypatch.setattr(chat_harness,'connect',connected)
+    client.app.state.http=httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    result=client.post('/ai-hub/api/harness/connect/openai',headers={'Authorization':'Bearer browser-test'},json={'action':'test'})
+    assert result.status_code==200,result.text
+    assert result.json()['model_records']==[records[0]['id']]
+    assert records[0]['params']['custom_params']['hub_api_model']=='api/openai/test-model'
+    assert records[0]['access_grants']==[{'principal_type':'user','principal_id':'preset-owner','permission':'read'}]
+    client.app.state.http=original

@@ -56,8 +56,8 @@ def model_catalog(request):
     for row in available_models(request):
         if row['id'].startswith('model/'):
             ident=row['id'][6:]
-            result.append({'id':ident,'name':('Codex · ' if ident.startswith('codex/') else '')+row['name'],'provider':ident.split('/')[0],'available':True})
-    if not any(x['provider']=='codex' for x in result):result.insert(0,{'id':'codex/default','name':'Codex · по умолчанию','provider':'codex','available':True})
+            result.append({'id':ident,'name':('Codex · ' if ident.startswith('codex/') else '')+row['name'],'provider':ident.split('/')[0],'available':True,'capabilities':{'text':True,'image':True,'tools':True}})
+    if not any(x['provider']=='codex' for x in result):result.insert(0,{'id':'codex/default','name':'Codex · по умолчанию','provider':'codex','available':True,'capabilities':{'text':True,'image':True,'tools':True}})
     try:
         from .chat_providers import discover
         result+=discover()

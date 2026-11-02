@@ -9,12 +9,12 @@ This branch starts from **Open WebUI v0.12.4**, commit `33c1978d5bad52a31df75ea5
 - Native Codex/Claude Code tasks with durable queue, streaming progress, files, cancellation, and stable message IDs.
 - Compact usage ring or dollar balance, with independent quota windows and reset times where providers supply them. Unknown values remain unknown.
 - A harness panel after the extension button: manual/automatic model routing, complexity preferences, available quotas, token limits, and credit policies. Cross-model continuation carries saved context and marks interrupted work rather than blindly repeating side effects.
-- Project memory, plans, checkpoints, reusable learning notes, and portable JSON handoff export. These are stored artifacts and a reuse loop, not model weight training.
+- Project memory, plans, checkpoints, reusable learning notes, and portable Markdown `HANDOFF.md` export. These are stored artifacts and a reuse loop, not model weight training.
 - Provider-specific connection guidance and private API-key configuration. Account sign-in still requires the account owner to complete the provider's login flow.
 - MCP, SKILL.md, plugin bundles, and a configurable discovery/context-selection catalog. Trust policy controls automatic installation; installing a skill does not automatically authorize arbitrary executable packages.
 - Sidebar project management, file upload/download/edit/move, external local roots and HTTPS WebDAV browsing, and verified project backups.
 
-The exact checked source revisions and offline validation are in `VERSION.json`. Installations need their own accounts or keys; none are bundled.
+The exact checked source revisions and offline validation are in [`VERSION.json`](VERSION.json). Installations need their own accounts or keys; none are bundled.
 
 ## Install (Linux)
 
@@ -63,7 +63,7 @@ External local directories require a server-side allowlist:
 export AI_HUB_WORKSPACE_ROOTS=/path/to/allowed/projects:/path/to/external/mount
 ```
 
-This permits registering already-mounted storage; the workbench does not mount devices or alter system mounts. Explicit existing-project import keeps the original directory in place. Imported roots can be renamed in the UI but cannot be physically moved through the project-root command; individual files remain manageable. Active tasks prevent project movement, deletion, or restore; a folder used as a running process's working directory cannot be moved.
+This permits registering already-mounted storage; the workbench does not mount devices or alter system mounts. Explicit existing-project import keeps the original directory in place. Imported roots support display rename and explicit physical rename/move. Renaming a root beside its current location requires its parent to be server-allowlisted; moving to another configured local storage is also supported. Individual files remain manageable. Active tasks prevent project movement, deletion, or restore; a folder used as a running process's working directory cannot be moved.
 
 HTTPS WebDAV supports directory listing, download, upload, new directories, movement, deletion, connection tests, and backup export. Credentials stay server-side. SFTP and S3 are **not** implemented adapters in this version. WebDAV is a remote file browser and archive destination, not a mounted working directory for native agent processes.
 
