@@ -84,8 +84,12 @@ def create_app():
         app.state.http=httpx.AsyncClient(timeout=httpx.Timeout(None,connect=15),trust_env=False)
         await chat_workspace.start_scheduler(app)
         recovery=asyncio.create_task(chat_jobs.recover(app))
+        from .chat_addons import monitor as monitor_addons
+        addon_monitor=asyncio.create_task(monitor_addons(app))
         try:yield
         finally:
+            addon_monitor.cancel()
+            with contextlib.suppress(asyncio.CancelledError):await addon_monitor
             recovery.cancel()
             with contextlib.suppress(asyncio.CancelledError):await recovery
             await chat_workspace.stop_scheduler(app);await app.state.http.aclose()
@@ -126,9 +130,9 @@ def create_app():
         headers={'Authorization':'Bearer '+token,'X-WebUI-User':hashlib.sha256(user['id'].encode()).hexdigest(),'Content-Type':request.headers.get('content-type','application/json')}
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://bridge',timeout=None) as bridge:
             result=await bridge.request(request.method,target+('?' + request.url.query if request.url.query else ''),headers=headers,content=b''.join(chunks))
-        if path.startswith('harness/connect/') and request.method=='POST' and result.status_code==200:
+        if (path.startswith('harness/connect/') or path=='harness/addons/omniroute') and request.method=='POST' and result.status_code==200:
             data=result.json()
-            if data.get('ok') and data.get('status')=='connected' and data.get('models'):
+            if data.get('ok') and (data.get('status')=='connected' or (path=='harness/addons/omniroute' and data.get('health'))) and data.get('models'):
                 provider=path.rsplit('/',1)[-1]
                 if provider not in {'codex','claude'}:
                     try:

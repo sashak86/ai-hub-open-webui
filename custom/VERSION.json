@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "date": "2026-11-04",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -9,9 +9,9 @@
     "image": "ghcr.io/open-webui/open-webui:v0.12.4-slim@sha256:41812075aede8ada8497cb2b71c76412978633eee72775bb77796f593d03b677"
   },
   "integration": {
-    "backend_revision": "92d778a67a2f0752106d11175f117be522fa752f",
+    "backend_revision": "b78207fa35f8bf28788c8695d298490635eac9e9",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
+    "ui_revision": "15d539b72e2f60bddeddfaae4f44ba6902648083",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -21,12 +21,14 @@
     "portability_changes": [
       "Use current user home instead of private server paths.",
       "Use loopback standalone bridge defaults and configured file origins.",
-      "Preserve upstream branding and license."
-    ]
+      "Preserve upstream branding and license.",
+      "Standalone lifecycle monitor and owner-only native OmniRoute model registration mirror backend integration."
+    ],
+    "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3"
   },
   "validation": {
-    "offline_tests": 30,
-    "pinned_preparation": "brand shell and queue patch passed against cached digest-pinned build; no service started",
+    "offline_tests": 33,
+    "pinned_preparation": "passed against cached digest-pinned build; reviewed queue chunk hashes and additive branded HTML shell checked; no service started",
     "isolated_process_smoke": [
       "startup",
       "health",
@@ -36,12 +38,21 @@
       "backup_zip",
       "native_model_catalog"
     ],
-    "secret_scan": "gitleaks 8.30.1: custom commit range, no leaks",
+    "secret_scan": "gitleaks8.30.1: all37 portable source files, no leaks; ignored runtime configuration not included in publication",
     "production_modified_by_publication": false,
-    "integrated_backend_tests": 1029,
-    "integrated_backend_skipped": 1,
-    "integrated_final_delta_tests": 13,
-    "installed_ui_acceptance": "Previous 0.1.1 acceptance retained; 0.1.2 brand UI candidate reported separately by UI executor; production install pending"
+    "previous_integrated_backend_tests": 1029,
+    "previous_integrated_backend_skipped": 1,
+    "previous_integrated_delta_tests": 13,
+    "affected_addon_backend_tests": 104,
+    "ui_candidate_acceptance": "Separate UI executor:320–1280,new/existing,quota/USD,keyboard,nonemptydraft,help,sidebar,plugins,coldloading; addon error/retry and localsetup actions",
+    "real_omniroute_mock_smoke": {
+      "restricted_key": true,
+      "model_discovery": true,
+      "nonstream_http": 200,
+      "stream_http": 200,
+      "temporary_configuration_removed": true
+    },
+    "upstream_install_receipts": "Backend executor: pinned5bundles installed; original Headroom compression,memory save/recall+restart persistence,and warm local Ollama inference through OmniRoute passed. Accounts and cloud providers remain per-installation configuration."
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -51,31 +62,37 @@
     "WebDAV and allowed local roots supported; SFTP/S3 not implemented.",
     "WebDAV tested with HTTP fixtures; each real remote account needs its own connection test.",
     "Accounts, API keys, TLS proxy and CLIs must be configured by the installation owner.",
-    "Projects have bounded code/content backups; excluded credentials require separate private backups."
+    "Projects have bounded code/content backups; excluded credentials require separate private backups.",
+    "Shared add-ons run independently of harness. Text-only APIs receive bounded skill instructions, without native Claude hooks or filesystem tools.",
+    "Headroom compresses supplied Workbench history with a reference tokenizer; it does not intercept every internal native CLI tool event and its counts are not provider billing.",
+    "Claude-mem completed-answer capture is opt-in and off initially. Stored observations are reference data, not trusted instructions.",
+    "OmniRoute local setup uses an already-loaded model and a restricted inference key. Other upstream providers require separate owner configuration."
   ],
   "sha256": {
     "ARCHITECTURE.md": "3cda96a9c3a03c4a5b27f739fd19d2c9b100b5be5d4a87ea4fc4ecf7ae6419ca",
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
-    "README.md": "0434db70deb512377126305891ccfa0584927aba018628a5cdc8706053d85986",
+    "README.md": "f0e9faa5012c325116511875b5c0a0021d5715765223d47e05f51caa5b6901bc",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
+    "bridge/hub_console/chat_addon_runtime.py": "bb24f46300b696affbf08dbed140a2f3a5046b8c992d0f4ae265f4f1385c252b",
+    "bridge/hub_console/chat_addons.py": "b0ddc7f942516c509e3cc61a1a3c47f3db569697fe330627a0bf5fe1ef86ca27",
     "bridge/hub_console/chat_billing.py": "f9422f520b5b8e273752b30980de90e0998ff256b73db8769737e4eb20cac8b3",
     "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
-    "bridge/hub_console/chat_harness.py": "f03e1549e543f5d34d071bf4e6322bbbb3e377ae0fc6f5bcb2d057f144e20802",
-    "bridge/hub_console/chat_jobs.py": "bb5b1adb17d40c472c663964da0bc06ee7c68151d6eb6d7b275d3672c521ebba",
+    "bridge/hub_console/chat_harness.py": "330dbc45fdf5dc3a1ef54fa5c839a14136bab53afab6533f3c1b0fa2e1f532c6",
+    "bridge/hub_console/chat_jobs.py": "b33eecb765dd8cb6cb3c3b6e7827757a256d5158b3c48b5642d05264b61acb6a",
     "bridge/hub_console/chat_providers.py": "530b77bb9f1c961481b4627d99b52ab9bec7d6f7718d811d824826c0c4bd766b",
     "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
-    "bridge/hub_console/chat_worker.py": "51c5cd527523cd21ea309984a55dc5221574b2437bf90ec057ea854b2f230c53",
+    "bridge/hub_console/chat_worker.py": "f005e581e48e4fca58bc79fa807be02b0bc1272e93d1173849f1abc2fc73c182",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
-    "bridge/hub_console/standalone.py": "e67c101387a41012d67527711c7dfe9a022e70af74590692a56daa64cb7a5c31",
+    "bridge/hub_console/standalone.py": "2d980d4f08ccf211343b4092d2f9fbe2512432ebb3eea35ac556e71dafd71bd1",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
     "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
     "deploy/brand-shell.html": "9f3ca5bcfc5a9896cb57e6983dd828e53b0906475a933eac316d05c7fd0c4917",
     "deploy/chat_pipe.py": "6791a22ee2a80d93d9c444410fbbfe319bd9775d5710b03f454eb8e4ac7abbf7",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
-    "deploy/extensions-ui.js": "584e8368a410886334ee2aed137015a92bc245b6dbfd783f91493fa48dee909e",
+    "deploy/extensions-ui.js": "6880ad1e3db66bf6ee8595bca8816f452bf3962092e0884988732a64c1fc1dba",
     "deploy/harness-ui.js": "8c869995cec23b644186c01413336876c083db72c228d0906fc7360169acd59f",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
     "deploy/patch-webui-queue.py": "49e11d1f0793e9fe9af742563bc4698baef4c5de2b27ab65ad3f5ec693f3f23c",
@@ -84,6 +101,7 @@
     "requirements.txt": "ae89c887ee7f184c91bc6198f6ad7bd10f5d26dcc5713caaa49ce4399ddbf744",
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/test_addons.py": "99830282121578fffa1268c2588b7b063d0a0ef702ded64d22fad9f3f7a71c27",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
     "tests/test_standalone.py": "208698a4f7b6a2b761bacb106be17b6566602d1de2f6d38c87ba9327621ef52d",
     "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"

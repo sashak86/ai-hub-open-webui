@@ -53,6 +53,22 @@ API keys entered through the workbench remain in private server files and are ma
 
 Routing applies only to providers and models you have connected. An explicit dollar budget excludes models whose maximum cost is unknown; an estimated task cost is not a provider's hard spend cap. Review the settings before enabling automatic model selection or context-dependent extension installation.
 
+## Shared add-ons
+
+Open **Extensions → Workbench add-ons** to install, enable, configure and test the reviewed integrations. Installation, activation and a successful connection test are separate states; an installed package does not create provider accounts or credits. Each browser user's configuration and installed service data live in a separate private namespace. Package services need Linux systemd; use the normal account's user service manager in a standalone installation.
+
+| Integration | Upstream | How this fork uses it |
+| --- | --- | --- |
+| OmniRoute | [cheaper-inference/OmniRoute](https://github.com/cheaper-inference/OmniRoute), MIT | Private gateway connection and discovered text API models. An explicit local setup uses an already-loaded Ollama model with a key restricted to that model and connection; it never downloads models or copies cloud credentials. Other providers require configuration in the gateway. Native Codex/Claude account authentication remains separate. |
+| Claude mem | [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem), Apache-2.0 | Owner/project-scoped recall and explicit note storage in the original worker. Optional completed-answer capture is off initially; saved observations are reference data. |
+| Headroom | [headroomlabs-ai/headroom](https://github.com/headroomlabs-ai/headroom), Apache-2.0 | Original local compression library in lossless agent mode, preserving the latest user message and falling back to full context on failure. Counts use a local reference tokenizer, not provider billing. No ML model installation is needed. |
+| Claude Code Setup | [Anthropic's official plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/claude-code-setup), Apache-2.0 | Original read-only automation recommendation skill, applied as shared agent instructions. Recommendations do not install hooks automatically. |
+| Task Observer | [rebelytics/one-skill-to-rule-them-all](https://github.com/rebelytics/one-skill-to-rule-them-all), CC BY 4.0 | Original skill and references, with Workbench instructions for proposed improvements and handoff. Installed skills are not silently rewritten. Attribution remains with rebelytics and upstream contributors. |
+
+The shared turn hooks run with the harness switch either on or off. Native coding agents can use the downloaded skill references on disk. Text-only API models receive the bounded instructions and recalled context but have no filesystem tools, Claude hooks or Cowork delivery features. Headroom processes the context supplied by Workbench before the call; this does not automatically intercept every internal tool response of an independently running CLI. Memory writes use the worker's explicit save API, without launching a paid summarization model.
+
+Installation recipes pin the reviewed package version and keep a private installation log. Review the installed service and connection status before use. Third-party package licenses apply separately from this fork's code license.
+
 ## Projects, external storage, and backups
 
 New projects live under the workbench's private data directory. `SASHA_WORKBENCH_DATA` and `SASHA_WORKBENCH_PROJECTS` can override its default user-home locations.

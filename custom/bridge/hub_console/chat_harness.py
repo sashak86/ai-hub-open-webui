@@ -532,6 +532,8 @@ def turn_prompt(desc,job_folder):
 
 
 def finish(desc,events,status,error_code=None):
+    from .chat_addons import finish as finish_addons
+    finish_addons(desc,events,status)
     h=desc.get('harness')
     if not h:return
     folder=Path(h['root']);run_id=h['run_id'];output=events.text[-16000:]
@@ -642,12 +644,15 @@ def run_api(desc,events,cancelled):
     """Direct paid APIs: streamed text, per-owner credentials, no hidden tool claims."""
     _,provider,model=desc['model'].split('/',2)
     entry=load(Path(desc['connection_root'])/'connections.json',{}).get(provider,{})
-    if not entry.get('api_key'):raise RuntimeError('auth_required')
+    if provider=='omniroute':
+        from .chat_addons import api_connection
+        entry=api_connection(desc)
+    if not entry.get('api_key') and provider!='omniroute':raise RuntimeError('auth_required')
     if desc.get('attachments'):raise RuntimeError('attachments_unsupported')
-    messages=list(desc.get('history',[]))+[dict(role='user',content=desc['text']+desc.get('harness_prompt',''))]
+    messages=list(desc.get('history',[]))+[dict(role='user',content=desc['text']+desc.get('harness_prompt','')+desc.get('addon_prompt',''))]
     usage={};output=False
     with httpx.Client(timeout=httpx.Timeout(660,connect=15),trust_env=False,follow_redirects=False) as client:
-        with client.stream('POST',entry['base_url']+'/chat/completions',headers={'Authorization':'Bearer '+entry['api_key']},json={'model':model,'messages':messages,'stream':True,'stream_options':{'include_usage':True}}) as response:
+        with client.stream('POST',entry['base_url']+'/chat/completions',headers=({'Authorization':'Bearer '+entry['api_key']} if entry.get('api_key') else {}),json={'model':model,'messages':messages,'stream':True,'stream_options':{'include_usage':True}}) as response:
             if response.status_code in (401,403):raise RuntimeError('auth_required')
             if response.status_code in (402,429):raise RuntimeError('quota_exhausted')
             response.raise_for_status()

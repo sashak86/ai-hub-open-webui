@@ -63,7 +63,8 @@ def model_catalog(request):
         result+=discover()
     except (ImportError,OSError,ValueError):pass
     from .chat_harness import api_models
-    return result+api_models(request)
+    from .chat_addons import api_models as addon_models
+    return result+api_models(request)+addon_models(request)
 
 
 def scoped_job(request,ident):
@@ -115,6 +116,8 @@ def install(app,owner_setup,validate_live):
     from .chat_harness import install as install_harness
     from .chat_workspace import install as install_workspace
     install_harness(app,owner_setup)
+    from .chat_addons import install as install_addons
+    install_addons(app,owner_setup)
     install_workspace(app,owner_setup)
 
     @app.get('/v1/jobs/models')
@@ -176,7 +179,7 @@ def install(app,owner_setup,validate_live):
             return summary(folder)
         outstanding=sum(1 for folder in (root/who).glob('*/job-*') if load(folder/'state.json',{}).get('status') not in TERMINAL)
         if outstanding>=20:raise HTTPException(429,'Too many queued jobs')
-        cwd=Path(request.state.principal.get('chat_cwd',request.state.principal.get('cwd',str(Path.home())))).resolve()
+        cwd=Path(request.state.principal.get('chat_cwd',request.state.principal.get('cwd','/srv/projects'))).resolve()
         roots=[Path(p).resolve() for p in request.state.principal.get('roots',[])]
         if not cwd.is_dir() or not any(cwd.is_relative_to(r) for r in roots):raise HTTPException(403,'Working directory is not granted')
         attachments=body.get('attachments',[])
@@ -215,6 +218,8 @@ def install(app,owner_setup,validate_live):
         from .chat_harness import prepare,root as harness_root
         desc['connection_root']=str(harness_root(request))
         await prepare(request,body,desc,[])
+        from .chat_addons import prepare as prepare_addons
+        await prepare_addons(request,body,desc)
         atomic(staging/'request.json',desc);own(staging/'request.json',request)
         stopped_early=load(chat/'stop.json',{}).get('at',0)>=received_at
         atomic(staging/'state.json',{'status':'cancelled' if stopped_early else 'queued','description':'Отменено до запуска' if stopped_early else 'В очереди','created_at':desc['created_at']});own(staging/'state.json',request)

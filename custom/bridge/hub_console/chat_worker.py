@@ -79,6 +79,7 @@ def prompt(desc):
     text=desc['text']
     if desc.get('extension_prompt'):text+=desc['extension_prompt']
     if desc.get('harness_prompt'):text+=desc['harness_prompt']
+    if desc.get('addon_prompt'):text+=desc['addon_prompt']
     if desc.get('attachments'):
         text+='\n\nПрикреплённые пользователем файлы (локальные пути, прочитай их для анализа):\n'
         text+='\n'.join(f"- {f['name']}: {f['path']} ({f['mime']})" for f in desc['attachments'])
