@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "date": "2026-11-04",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -11,7 +11,7 @@
   "integration": {
     "backend_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
+    "ui_revision": "1fd75e6",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -24,10 +24,12 @@
       "Preserve upstream branding and license.",
       "Standalone lifecycle monitor and owner-only native OmniRoute model registration mirror backend integration.",
       "Authenticated standalone job/artifact export routes and artifact module delivery.",
-      "Portable endpoint/file origins retained; connected-service MCP uses explicit package PYTHONPATH."
+      "Portable endpoint/file origins retained; connected-service MCP uses explicit package PYTHONPATH.",
+      "Optional local ComfyUI SD1.5 media jobs and bounded CPU image animation, disabled until SASHA_WORKBENCH_COMFY_URL is set."
     ],
     "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
-    "interactive_connectors_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571"
+    "interactive_connectors_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
+    "media_revision": "1fd75e6"
   },
   "validation": {
     "offline_tests": 33,

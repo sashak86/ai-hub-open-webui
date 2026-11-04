@@ -131,3 +131,13 @@ The harness keeps plans, progress, memory, and checkpoint artifacts on the serve
 ## Licensing and branding
 
 Upstream files retain the [Open WebUI License](../LICENSE) and its branding conditions. Additive Sasha branding does not remove the upstream name/logo. If a deployment changes upstream identifiers, it must meet the exceptions or obtain permission described in that license. The customization's code license is in [LICENSE](LICENSE). The supplied personal avatar is included for this personal fork with the owner's authorization and is not a general trademark endorsement.
+
+## Local images and bounded video animation (0.4.0)
+
+The sidebar and Harness settings include **Images and video**. Local image generation uses a separately installed ComfyUI with a fixed SD1.5 512×512 workflow. Put `v1-5-pruned-emaonly.safetensors` in ComfyUI `models/checkpoints`; obtain the model from its official repository and review its license. Start ComfyUI on a private reachable address, then set `SASHA_WORKBENCH_COMFY_URL=http://127.0.0.1:8188` for the bridge and restart it. When ComfyUI is in another container, use its private container-network address. The browser never accesses ComfyUI directly. No model or GPU package is automatically installed; no public ComfyUI port is required. Without this setting, generation remains explicitly disconnected.
+
+Jobs and PNGs are private to their authenticated owner and survive page refresh. Ambiguous submissions are not replayed. Only one local generation runs at a time. A stale job absent from both ComfyUI history and queue becomes interrupted, allowing a new explicit request. The gallery can download files or add them through the native Open WebUI attachment input, without sending a chat message.
+
+**Image animation is a separate feature**, available when `ffmpeg` with `libx264` is on the bridge PATH: a fixed five-second 512×512 smooth zoom, 24fps, without audio. This is camera motion on a still image, **not neural video generation**. Only an owned generated PNG can be animated; filters, paths and duration are not supplied by a browser. ffmpeg uses two threads and low CPU scheduling priority.
+
+Wan neural video generation is **not enabled** in this release. The UI states this explicitly. Krea is also not enabled by the portable configuration. Model quality/speed depend on hardware; SD1.5 is an economical baseline, not a claim of parity with current cloud image models. The optional ai-hub dispatcher in the shared module is not enabled by the portable adapter and must not be enabled on other hosts.

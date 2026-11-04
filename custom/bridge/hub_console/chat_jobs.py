@@ -130,6 +130,8 @@ def install(app,owner_setup,validate_live):
     install_workspace(app,owner_setup)
     from .chat_connectors import install as install_connectors
     install_connectors(app,owner_setup)
+    from .chat_media import install as install_media
+    install_media(app,owner_setup)
 
     @app.get('/v1/jobs/models')
     async def models(request:Request):

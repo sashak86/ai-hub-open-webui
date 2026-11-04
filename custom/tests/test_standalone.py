@@ -146,3 +146,43 @@ def test_pinned_shell_retains_upstream_and_rejects_ambiguous_body():
     assert 'Форк Sasha · на базе Open WebUI' in patched
     assert module.patch_shell(patched)==patched
     with pytest.raises(RuntimeError):module.patch_shell('<body></body></body>')
+
+def test_media_defaults_disconnected_and_asset_is_packaged(client):
+    result=client.get('/v1/media');assert result.status_code==200,result.text
+    assert result.json()['enabled'] is False
+    assert all(not row['available'] for row in result.json()['models'])
+    assert client.post('/v1/media',json={'model':'sd15','prompt':'cat'}).status_code==409
+    asset=client.get('/ai-hub/media-ui.js');assert asset.status_code==200 and 'renderMedia' in asset.text
+
+
+def test_portable_media_jwt_proxy_and_private_download(client):
+    import httpx,json
+    from hub_console import chat_worker as worker
+    original=client.app.state.http
+    async def handler(request):
+        return httpx.Response(200,json={'id':'media-owner','role':'admin'})
+    client.app.state.http=httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    headers={'Authorization':'Bearer browser-test'}
+    result=client.get('/ai-hub/api/media',headers=headers);assert result.status_code==200,result.text
+    user_hash=hashlib.sha256(b'media-owner').hexdigest();owner=hashlib.sha256(('webui:'+user_hash).encode()).hexdigest()
+    ident='4'*32;folder=client.app.state.chat_jobs_root/'media'/owner/ident;folder.mkdir(parents=True)
+    worker.atomic(folder/'job.json',{'id':ident,'status':'completed','mime':'image/png','model':'sd15'});(folder/'image.png').write_bytes(b'\x89PNG\r\n\x1a\nportable-image')
+    file=client.get('/ai-hub/api/media/'+ident+'/file',headers=headers);assert file.status_code==200 and file.content.endswith(b'portable-image')
+    client.headers['X-WebUI-User']='b'*64;assert client.get('/v1/media/'+ident+'/file').status_code==404
+    client.app.state.http=original
+
+def test_media_enabled_only_by_explicit_local_endpoint(tmp_path,monkeypatch):
+    monkeypatch.setenv('SASHA_WORKBENCH_DATA',str(tmp_path/'data'))
+    monkeypatch.setenv('SASHA_WORKBENCH_PROJECTS',str(tmp_path/'projects'))
+    monkeypatch.setenv('HUB_CHAT_TOKEN','synthetic-offline-token-for-test-only')
+    monkeypatch.setenv('SASHA_WORKBENCH_COMFY_URL','http://127.0.0.1:8188')
+    from hub_console import config,standalone
+    importlib.reload(config);importlib.reload(standalone)
+    with TestClient(standalone.create_app()) as c:
+        c.headers.update({'Authorization':'Bearer synthetic-offline-token-for-test-only','X-WebUI-User':'a'*64})
+        result=c.get('/v1/media');assert result.status_code==200
+        assert result.json()['enabled'] is True
+        assert [r['id'] for r in result.json()['models'] if r['available']]==['sd15']
+        import json
+        options=json.loads(c.app.state.config_file.read_text())['media_generation']
+        assert options['comfy_url']=='http://127.0.0.1:8188' and not options.get('hub_dispatcher')
