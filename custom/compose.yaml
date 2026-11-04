@@ -14,6 +14,7 @@ services:
       - ./runtime/overrides/chunks/CqEczJQs.js:/app/build/_app/immutable/chunks/CqEczJQs.js:ro
       - ./runtime/overrides/chunks/CNDyKy5F.js:/app/build/_app/immutable/chunks/CNDyKy5F.js:ro
       - ./runtime/overrides/ai-hub:/app/build/ai-hub:ro
+      - ./runtime/overrides/index.html:/app/build/index.html:ro
     restart: unless-stopped
 volumes:
   webui-data:

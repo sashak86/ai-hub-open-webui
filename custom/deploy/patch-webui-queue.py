@@ -15,6 +15,15 @@ CHAT = 'CNDyKy5F.js'
 EXPECTED = {'CqEczJQs.js': '42633dc8d958121268283a22da0783d767733f82de0d51dcd3c1048d4ac1fa99', 'CNDyKy5F.js': '15c885a1adbd752e11e3805249972a0e4c9443bc06b6bac3bab4cbac7c242892'}
 
 
+def patch_shell(index):
+    if index.count('</body>') != 1:
+        raise RuntimeError('Pinned WebUI HTML body anchor changed')
+    if 'sasha-fork-shell-script' not in index:
+        shell = Path(__file__).with_name('brand-shell.html').read_text()
+        index = index.replace('</body>', shell + '\n</body>')
+    return index
+
+
 def patch(source, output):
     source, output = Path(source), Path(output)
     assets = source / '_app/immutable/chunks'
@@ -53,6 +62,9 @@ def patch(source, output):
     (output/'ai-hub/harness-ui.js').write_text(Path(__file__).with_name('harness-ui.js').read_text())
     (output/'ai-hub/assets').mkdir(exist_ok=True)
     (output/'ai-hub/assets/sasha-avatar.png').write_bytes(Path(__file__).with_name('assets').joinpath('sasha-avatar.png').read_bytes())
+    if (source/'index.html').is_file():
+        index = patch_shell((source/'index.html').read_text())
+        (output/'index.html').write_text(index)
     print('Pinned native queue patched; owner/chat persistence and stable server IDs enabled')
 
 

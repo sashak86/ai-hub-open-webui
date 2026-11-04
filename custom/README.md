@@ -1,6 +1,6 @@
 # Sasha AI Workbench for Open WebUI
 
-A personal Open WebUI fork with a persistent agent workbench. The upstream application, copyright notices, and Open WebUI name remain present. Sasha's avatar and blue/orange accents add a personal identity.
+A personal Open WebUI fork with a persistent agent workbench. The upstream application, copyright notices, and Open WebUI name remain present. A monochrome combination of Sasha's avatar and the upstream logo identifies this personal fork on loading, in the sidebar, and in extension settings.
 
 This branch starts from **Open WebUI v0.12.4**, commit `33c1978d5bad52a31df75ea55143025dfad18d16`. Custom integration lives entirely in `custom/`; upstream application sources are retained. This is an independent community customization, not an Open WebUI, Anthropic, OpenAI, or Nous Research product.
 

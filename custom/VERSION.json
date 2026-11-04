@@ -1,7 +1,7 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.1.1",
-  "date": "2026-11-03",
+  "version": "0.1.2",
+  "date": "2026-11-04",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
     "tag": "v0.12.4",
@@ -11,7 +11,7 @@
   "integration": {
     "backend_revision": "92d778a67a2f0752106d11175f117be522fa752f",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "a6caf312322d0cf9e2ff61063ed51d3f587f8670",
+    "ui_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -25,8 +25,8 @@
     ]
   },
   "validation": {
-    "offline_tests": 29,
-    "pinned_preparation": "passed; image digest and reviewed chunk hashes checked; no service started",
+    "offline_tests": 30,
+    "pinned_preparation": "brand shell and queue patch passed against cached digest-pinned build; no service started",
     "isolated_process_smoke": [
       "startup",
       "health",
@@ -41,7 +41,7 @@
     "integrated_backend_tests": 1029,
     "integrated_backend_skipped": 1,
     "integrated_final_delta_tests": 13,
-    "installed_ui_acceptance": "320/390/1280 and mobile keyboard450; native personal model USD mapping passed by separate UI executor"
+    "installed_ui_acceptance": "Previous 0.1.1 acceptance retained; 0.1.2 brand UI candidate reported separately by UI executor; production install pending"
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -56,7 +56,7 @@
   "sha256": {
     "ARCHITECTURE.md": "3cda96a9c3a03c4a5b27f739fd19d2c9b100b5be5d4a87ea4fc4ecf7ae6419ca",
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
-    "README.md": "5eaabc210360bb395f857146b96e13af6b3589b60ffc4093b57a422d2b085f3a",
+    "README.md": "0434db70deb512377126305891ccfa0584927aba018628a5cdc8706053d85986",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_billing.py": "f9422f520b5b8e273752b30980de90e0998ff256b73db8769737e4eb20cac8b3",
@@ -70,21 +70,22 @@
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
     "bridge/hub_console/standalone.py": "e67c101387a41012d67527711c7dfe9a022e70af74590692a56daa64cb7a5c31",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
-    "compose.yaml": "93ed3ac28af5f6eb3e75989ec9b80276bb72089304b50b0318dc19b60ebaba70",
+    "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
+    "deploy/brand-shell.html": "9f3ca5bcfc5a9896cb57e6983dd828e53b0906475a933eac316d05c7fd0c4917",
     "deploy/chat_pipe.py": "6791a22ee2a80d93d9c444410fbbfe319bd9775d5710b03f454eb8e4ac7abbf7",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
-    "deploy/extensions-ui.js": "66c34303c315dd2b1982a8d879f844fe3c7e250e18f82c8fd2d5c0f80fe27143",
-    "deploy/harness-ui.js": "9cc6c07bc39296857c25fa084cdaeec3241076ff48d95b9b33a2d2c07e3763db",
+    "deploy/extensions-ui.js": "584e8368a410886334ee2aed137015a92bc245b6dbfd783f91493fa48dee909e",
+    "deploy/harness-ui.js": "8c869995cec23b644186c01413336876c083db72c228d0906fc7360169acd59f",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
-    "deploy/patch-webui-queue.py": "c9bbf943d8191ef068e0277f543a4ed5b3ee0e83bd20a22b53ed41432b7a0273",
+    "deploy/patch-webui-queue.py": "49e11d1f0793e9fe9af742563bc4698baef4c5de2b27ab65ad3f5ec693f3f23c",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
     "prepare.py": "c0d91218e7a8d37c73f0c355a440bf05894e9e0b3ed7e18a9aca21efe66ca842",
     "requirements.txt": "ae89c887ee7f184c91bc6198f6ad7bd10f5d26dcc5713caaa49ce4399ddbf744",
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
-    "tests/test_standalone.py": "36f37e345d884015244f0ad82f427453efe5dfcdb94abe724424dbc8e9bf0844",
+    "tests/test_standalone.py": "208698a4f7b6a2b761bacb106be17b6566602d1de2f6d38c87ba9327621ef52d",
     "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
   }
 }

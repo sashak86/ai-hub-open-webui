@@ -133,3 +133,16 @@ def test_personal_api_alias_matches_owner_scoped_native_preset(client):
     assert owned['native_id']==registered[0]
     client.headers['X-WebUI-User']='b'*64
     assert all(row['id']!='api/openai/offline-model' for row in client.get('/v1/harness/models').json()['data'])
+
+
+def test_pinned_shell_retains_upstream_and_rejects_ambiguous_body():
+    import importlib.util
+    source=Path(__file__).resolve().parents[1]/'deploy/patch-webui-queue.py'
+    spec=importlib.util.spec_from_file_location('public_shell_patch',source)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    original='<html><body><div id="splash-screen"><img id="logo" src="/static/favicon.png"></div></body></html>'
+    patched=module.patch_shell(original)
+    assert 'id="logo" src="/static/favicon.png"' in patched
+    assert 'Форк Sasha · на базе Open WebUI' in patched
+    assert module.patch_shell(patched)==patched
+    with pytest.raises(RuntimeError):module.patch_shell('<body></body></body>')
