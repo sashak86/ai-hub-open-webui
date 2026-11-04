@@ -9,9 +9,9 @@
     "image": "ghcr.io/open-webui/open-webui:v0.12.4-slim@sha256:41812075aede8ada8497cb2b71c76412978633eee72775bb77796f593d03b677"
   },
   "integration": {
-    "backend_revision": "c35e395184b66e88426ee6c562580267f84f8f88",
+    "backend_revision": "e35df53ac2c1dc790b39e6e074a16bb1e0e62d3b",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "c35e395184b66e88426ee6c562580267f84f8f88",
+    "ui_revision": "e35df53ac2c1dc790b39e6e074a16bb1e0e62d3b",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -27,7 +27,7 @@
       "Portable endpoint/file origins retained; connected-service MCP uses explicit package PYTHONPATH."
     ],
     "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
-    "interactive_connectors_revision": "c35e395184b66e88426ee6c562580267f84f8f88"
+    "interactive_connectors_revision": "e35df53ac2c1dc790b39e6e074a16bb1e0e62d3b"
   },
   "validation": {
     "offline_tests": 33,
@@ -91,12 +91,12 @@
     "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
     "bridge/hub_console/chat_harness.py": "3f04f96b292d8405e590979e36f4c38b4dd3702b453c7380fecfae658ac0a29b",
     "bridge/hub_console/chat_jobs.py": "9edc6fe17582ee4255e4a13c411c2054eea2c9fe7c44a4b75dc891cc1fd6d3ae",
-    "bridge/hub_console/chat_providers.py": "530b77bb9f1c961481b4627d99b52ab9bec7d6f7718d811d824826c0c4bd766b",
+    "bridge/hub_console/chat_providers.py": "e5e19143c9598ee787de42b8c65dbdc0f281719ea3fdea9dc974c02e32935dcf",
     "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
     "bridge/hub_console/chat_worker.py": "16ff9c7d35fb5b44eadd4f9a66d6e969d41c8b5234bc595928f787f9efa666d1",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
-    "bridge/hub_console/standalone.py": "bd3c2649b70eb83e3739600e9d435bc6f292536d7488a173d706cc8b8489ee4e",
+    "bridge/hub_console/standalone.py": "722e2693eec6623cc7de6f7ca7dd6259cf5314f0d3bcc72551d15024cb89db3d",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
     "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/artifacts-ui.js": "d649cddc731a162cbe9e0d6ed2991dddca81cb59e33cca07e03b5529b9ea7101",
@@ -114,7 +114,7 @@
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tests/test_addons.py": "99830282121578fffa1268c2588b7b063d0a0ef702ded64d22fad9f3f7a71c27",
-    "tests/test_artifacts.py": "14962076db75c1c3782630bb995d010f35e15b1bf3fe385358dafa84992fd62a",
+    "tests/test_artifacts.py": "7796bddcbb42ae4e7ea3c9585f8494d27056960cb759dc9b86efb22a9b748012",
     "tests/test_connectors.py": "5a9c3d7d49cad90b51fe5b5a04f038e3697e9d89bab405b89e0116565d2539b1",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
     "tests/test_standalone.py": "208698a4f7b6a2b761bacb106be17b6566602d1de2f6d38c87ba9327621ef52d",

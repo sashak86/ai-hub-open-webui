@@ -319,10 +319,11 @@ def run_provider(model: str, text: str, attachments: list, cwd: str,
     sel.register(proc.stderr, selectors.EVENT_READ)
     partial = False
     answer = ''
+    final_answer = ''
     stderr_tail = ''
 
     def consume(line):
-        nonlocal native_id, saw_text, finished, failed, partial, answer
+        nonlocal native_id, saw_text, finished, failed, partial, answer, final_answer
         try:
             row = json.loads(line)
         except (ValueError, UnicodeError):
@@ -354,12 +355,15 @@ def run_provider(model: str, text: str, attachments: list, cwd: str,
                     emit({'type': 'text', 'text': delta['text']}); saw_text = True; partial = True
                 if event.get('type') == 'content_block_start' and event.get('content_block', {}).get('type') == 'tool_use':
                     emit({'type': 'status', 'description': 'Использует инструмент'})
+            if row.get('type') == 'assistant':
+                final_answer=''.join(b.get('text','') for b in row.get('message',{}).get('content',[]) if b.get('type')=='text')
             if row.get('type') == 'assistant' and not partial:
                 for block in row.get('message', {}).get('content', []):
                     if block.get('type') == 'text' and block.get('text'):
                         emit({'type': 'text', 'text': block['text']}); saw_text = True
             if row.get('type') == 'result':
                 failed = row.get('is_error', False); finished = not failed
+                if isinstance(row.get('result'),str):final_answer=row['result']
                 for key in ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'):
                     value = row.get('usage', {}).get(key)
                     if isinstance(value, (int, float)) and math.isfinite(value) and value >= 0:
@@ -372,6 +376,7 @@ def run_provider(model: str, text: str, attachments: list, cwd: str,
         if not isinstance(part, dict):
             return
         if typ == 'text' and isinstance(part.get('text'), str) and part['text']:
+            final_answer=part['text']
             emit({'type': 'text', 'text': part['text']})
             saw_text = True
         elif typ == 'tool_use':
@@ -437,7 +442,7 @@ def run_provider(model: str, text: str, attachments: list, cwd: str,
             temp.replace(history_path)
         _status(model, write='verified')
         _CACHE = (0, [])
-        return {'native_id': native_id, 'usage': usage}
+        return {'native_id': native_id, 'usage': usage, 'final_text': final_answer or answer}
     finally:
         sel.close()
         _stop(proc)

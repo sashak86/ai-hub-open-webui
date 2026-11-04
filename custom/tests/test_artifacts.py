@@ -10,7 +10,7 @@ def test_artifact_exports_through_real_authenticated_portable_route(client,monke
     monkeypatch.setattr(jobs,'start_worker',lambda *a:None)
     original=client.app.state.http
     def handler(request):
-        if request.url.path=='/api/v1/auths/':return httpx.Response(200,json={'id':'a','role':'admin'})
+        if request.url.path=='/api/v1/auths/':return httpx.Response(200,json={'id':'a','role':'user' if request.headers.get('authorization')=='Bearer ordinary-user' else 'admin'})
         return httpx.Response(404)
     client.app.state.http=httpx.AsyncClient(transport=httpx.MockTransport(handler))
     # UI proxy owner is sha256('a'), separate from fixture's direct API owner.
@@ -32,6 +32,10 @@ def test_artifact_exports_through_real_authenticated_portable_route(client,monke
         assert 'Progress only' not in result.json()['final_text']
         assert "'=SUM(A1)" in client.get(base+'/artifacts/1/export?format=csv',headers=headers).text
         assert client.get(base+'/artifacts/1/export',headers=headers).json()['data']['rows'][1]==[42]
+        ordinary={'Authorization':'Bearer ordinary-user'}
+        assert client.get(base,headers=ordinary).status_code==200
+        assert client.get(base+'/artifacts/1/export',headers=ordinary).status_code==200
+        assert client.get('/ai-hub/api/connectors',headers=ordinary).status_code==403
         assert client.get('/ai-hub/artifacts-ui.js').status_code==200
         assert 'installArtifactsUI' in client.get('/ai-hub/artifacts-ui.js').text
     finally:client.app.state.http=original

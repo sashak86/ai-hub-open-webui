@@ -120,7 +120,9 @@ def create_app():
         if user_response.status_code!=200:raise HTTPException(401,'Open WebUI session expired')
         user=user_response.json()
         allowed={v for v in os.environ.get('SASHA_WORKBENCH_ALLOWED_USERS','').split(',') if v}
-        if user.get('role')!='admin' and user.get('id') not in allowed:raise HTTPException(403,'Workbench is limited to the administrator and explicitly allowed user IDs')
+        own_job_read=bool(re.fullmatch(r'jobs/[a-f0-9]{32}(?:/artifacts/[0-9]{1,2}/export)?',path)) and request.method=='GET'
+        if user.get('role') not in {'admin','user'}:raise HTTPException(403,'Account access denied')
+        if not own_job_read and user.get('role')!='admin' and user.get('id') not in allowed:raise HTTPException(403,'Workbench is limited to the administrator and explicitly allowed user IDs')
         if path=='limits':target='/v1/jobs/limits'
         elif re.fullmatch(r'jobs/[a-f0-9]{32}(?:/artifacts/[0-9]{1,2}/export)?',path) and request.method=='GET':target='/v1/'+path
         elif path=='extensions' or path.startswith('extensions/'):target='/v1/chat-extensions'+path[len('extensions'):]
