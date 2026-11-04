@@ -52,10 +52,19 @@ def test_native_pipe_returns_real_image_without_text_model_call(pipe,tmp_path,mo
     assert all(not path.startswith('/v1/jobs') for path in calls)
     assert events[-1]['data']['done'] is True
 
-def test_attachments_are_not_silently_ignored_for_edit(pipe):
+def test_attachments_are_not_silently_ignored_for_edit(pipe,monkeypatch):
+    async def collect(*args):return [{'name':'a.txt','mime':'text/plain','content_base64':'YQ=='}]
+    monkeypatch.setattr(pipe,'collect_attachments',collect)
     async def run():return ''.join([x async for x in pipe.image_turn(None,'нарисуй кота',{}, {'id':'a'},[{'id':'image'}],[],None)])
-    assert 'Редактирование' in asyncio.run(run())
+    assert 'Прикрепите один' in asyncio.run(run())
+
 
 def test_provider_reason_is_visible_for_both_bridge_and_portable_errors(pipe):
     assert pipe.media_error(httpx.Response(409,json={'error':{'message':'Недостаточно RAM'}}))=='Недостаточно RAM'
     assert pipe.media_error(httpx.Response(403,json={'detail':'Аккаунт не разрешён'}))=='Аккаунт не разрешён'
+
+
+def test_edit_imperative_needs_image(pipe):
+    assert pipe.image_intent("исправь цвет рубашки",True)
+    assert pipe.image_intent("исправь ошибку") is None
+    assert pipe.image_intent("/edit a red flower")=="a red flower"

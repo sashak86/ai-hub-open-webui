@@ -198,10 +198,15 @@ async def status_emitter(metadata, user, fallback):
             await live(event)
     return emit
 
-def image_intent(text):
+
+def image_intent(text,has_image=False):
     """Only an explicit current-user imperative/command, never quoted history."""
-    match=re.match(r'^\s*(?:/image(?:\s+|$)|(?:пожалуйста[, ]+)?(?:нарисуй(?:те)?|(?:создай(?:те)?|сгенерируй(?:те)?)\s+(?:изображение|картинку|рисунок|фото))\s*[:,—-]?\s+)([\s\S]+)$',text,re.I)
-    return match.group(1).strip() if match else None
+    match=re.match(r'^\s*(?:/(?:image|edit)(?:\s+|$)|(?:пожалуйста[, ]+)?(?:нарисуй(?:те)?|(?:создай(?:те)?|сгенерируй(?:те)?)\s+(?:изображение|картинку|рисунок|фото))\s*[:,—-]?\s+)([\s\S]+)$',text,re.I)
+    if match:return match.group(1).strip()
+    if has_image:
+        edit=re.match(r'^\s*(?:пожалуйста[, ]+)?(?:измени|исправь|отредактируй|замени|перерисуй|убери|добавь)\s+([\s\S]+)$',text,re.I)
+        if edit:return text.strip()
+    return None
 
 
 async def media_file(client,job,headers,user):
@@ -231,11 +236,13 @@ def media_error(response):
     except (ValueError,AttributeError):return 'Локальная генерация недоступна.'
 
 
-async def image_turn(pipe,text,metadata,user,files,images,emitter):
-    if files or images:
-        yield 'Этот локальный режим пока создаёт изображения по описанию. Редактирование загруженного изображения ещё не подключено; исходный файл не изменён.'
-        return
-    owner=identity(user);headers={'X-WebUI-User':owner};prompt=image_intent(text)
+async def image_turn(pipe,text,metadata,user,files,images,emitter,prepared=None):
+    attachments=prepared if prepared is not None else await collect_attachments(files,images,user) if files or images else []
+    sources=[a for a in attachments if a['mime'].startswith('image/') and a['name'].lower()!='mask.png']
+    masks=[a for a in attachments if a['name'].lower()=='mask.png']
+    if attachments and (len(sources)!=1 or len(masks)>1 or len(sources)+len(masks)!=len(attachments)):
+        yield 'Прикрепите один PNG/JPEG/WebP референс. Для правки области добавьте mask.png (белое — изменить, чёрное — сохранить). Маску удобно нарисовать в «Изображения и видео».';return
+    owner=identity(user);headers={'X-WebUI-User':owner};prompt=image_intent(text,bool(sources))
     if not prompt:return
     async def status(job):
         if emitter:
@@ -247,7 +254,7 @@ async def image_turn(pipe,text,metadata,user,files,images,emitter):
         options=catalog.json()
         model=options.get('default_model','sdxl-lightning')
         key='chat:'+hashlib.sha256((metadata['chat_id']+':'+metadata['message_id']).encode()).hexdigest()
-        result=await client.post('/v1/media',headers=headers,json={'model':model,'prompt':prompt,'chat_id':metadata['chat_id'],'client_request_id':key});
+        result=await client.post('/v1/media',headers=headers,json={'model':model,'prompt':prompt,'chat_id':metadata['chat_id'],'client_request_id':key,**({'mode':'inpaint' if masks else 'reference','source_base64':sources[0]['content_base64'],**({'mask_base64':masks[0]['content_base64']} if masks else {})} if sources else {})});
         if result.status_code>=400:
             yield media_error(result);return
         job=result.json();phase=None
@@ -306,12 +313,12 @@ class Pipe:
         if not isinstance(chat_id, str) or not isinstance(message_id, str):
             raise ValueError('Сохраните чат перед отправкой агенту.')
         text, images = text_and_images(body.get('messages', []))
-        if image_intent(text) is not None:
+        attachments = await collect_attachments(__files__, images, __user__) if __files__ or images else []
+        if image_intent(text,any(a['mime'].startswith('image/') for a in attachments)) is not None:
             emitter=await status_emitter(metadata,__user__,__event_emitter__)
-            async for chunk in image_turn(self,text,{**metadata,'message_id':message_id},__user__,__files__,images,emitter):yield chunk
+            async for chunk in image_turn(self,text,{**metadata,'message_id':message_id},__user__,__files__,images,emitter,prepared=attachments):yield chunk
             return
         history = visible_history(body.get('messages', []))
-        attachments = await collect_attachments(__files__, images, __user__)
         model = (body.get('hub_api_model') or body.get('model', '').split('.', 1)[-1])
         if not text.strip() and not attachments:
             raise ValueError('Добавьте сообщение или файл.')

@@ -186,3 +186,8 @@ def test_media_enabled_only_by_explicit_local_endpoint(tmp_path,monkeypatch):
         import json
         options=json.loads(c.app.state.config_file.read_text())['media_generation']
         assert options['comfy_url']=='http://127.0.0.1:8188' and not options.get('hub_dispatcher')
+
+
+def test_reference_media_body_passes_bounded_middleware(client):
+    response=client.post("/v1/media",json={"prompt":"cat","unused":"x"*700000})
+    assert response.status_code==409,response.text[:200]

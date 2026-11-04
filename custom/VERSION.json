@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "date": "2026-11-05",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -11,7 +11,7 @@
   "integration": {
     "backend_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
     "backend_api_model_registration_revision": "e81400a0bd0a990d75a77b3d1378c877a4c59159",
-    "ui_revision": "adac7d2",
+    "ui_revision": "b840dac",
     "workspace_revision": "d7c3d05",
     "portable_adapters": [
       "config.py",
@@ -26,7 +26,8 @@
       "Authenticated standalone job/artifact export routes and artifact module delivery.",
       "Portable endpoint/file origins retained; connected-service MCP uses explicit package PYTHONPATH.",
       "Optional local ComfyUI SD1.5 media jobs and bounded CPU image animation, disabled until SASHA_WORKBENCH_COMFY_URL is set.",
-      "SDXL Lightning8 quality workflow and native Pipe image intents/files; optional resident-only local prompt translation, without changing provider context or retention."
+      "SDXL Lightning8 quality workflow and native Pipe image intents/files; optional resident-only local prompt translation, without changing provider context or retention.",
+      "Single-reference SDXL img2img and mobile mask editor; local masked patch compositing preserves every unselected decoded RGB pixel; Pillow dependency pinned."
     ],
     "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
     "interactive_connectors_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
@@ -58,7 +59,9 @@
       "stream_http": 200,
       "temporary_configuration_removed": true
     },
-    "upstream_install_receipts": "Backend executor: pinned5bundles installed; original Headroom compression,memory save/recall+restart persistence,and warm local Ollama inference through OmniRoute passed. Accounts and cloud providers remain per-installation configuration."
+    "upstream_install_receipts": "Backend executor: pinned5bundles installed; original Headroom compression,memory save/recall+restart persistence,and warm local Ollama inference through OmniRoute passed. Accounts and cloud providers remain per-installation configuration.",
+    "media_edit_offline_tests": 61,
+    "media_edit_live": "RealSDXL1024reference24.21s;semanticmaskedrose24.44s outsidechanged0;nativePipeowner200foreign404;browserreload/mobile/touch2uploads/0JSerrors"
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -82,7 +85,7 @@
   "sha256": {
     "ARCHITECTURE.md": "e7d909256dc7303151324629ee6d2b20c490d22d7e2434ce561c44ee9164f523",
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
-    "README.md": "99be3c7b2e5710e85fd6fd3450169ca38c7f358d84f7694d5ab1fb035b695c7a",
+    "README.md": "bfd481a8b5689e06e23ac51de673c0711fa012c015b36f80bfba64cddf2df885",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_addon_runtime.py": "bb24f46300b696affbf08dbed140a2f3a5046b8c992d0f4ae265f4f1385c252b",
@@ -93,34 +96,35 @@
     "bridge/hub_console/chat_connectors.py": "d2e966caed9793983ed67907f63dcaef4ecc5103531fcdf87bd5c962994e8bc2",
     "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
     "bridge/hub_console/chat_harness.py": "3f04f96b292d8405e590979e36f4c38b4dd3702b453c7380fecfae658ac0a29b",
-    "bridge/hub_console/chat_jobs.py": "ce87cdfa143c16a24022a9c105020bb60d275c2004c96a735a7fd870628b78f0",
+    "bridge/hub_console/chat_jobs.py": "0718a9c5cca3433946f52b7b2bbbf05491c2462b484afb69a3e2f3222b594a26",
     "bridge/hub_console/chat_providers.py": "e5e19143c9598ee787de42b8c65dbdc0f281719ea3fdea9dc974c02e32935dcf",
     "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
     "bridge/hub_console/chat_worker.py": "16ff9c7d35fb5b44eadd4f9a66d6e969d41c8b5234bc595928f787f9efa666d1",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
-    "bridge/hub_console/standalone.py": "722e2693eec6623cc7de6f7ca7dd6259cf5314f0d3bcc72551d15024cb89db3d",
+    "bridge/hub_console/standalone.py": "7f111cdc6488f2cc8cb7d70eba8a3e82a65c2e5c164829f5bdbbd12ada8f4c23",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
     "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/artifacts-ui.js": "d649cddc731a162cbe9e0d6ed2991dddca81cb59e33cca07e03b5529b9ea7101",
     "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
     "deploy/brand-shell.html": "9f3ca5bcfc5a9896cb57e6983dd828e53b0906475a933eac316d05c7fd0c4917",
-    "deploy/chat_pipe.py": "5d0dea4263824c4473a95472d6384f7de177559e496d2480fae57e41ff43ae5f",
+    "deploy/chat_pipe.py": "52ff7958f28d8ba16412bff4b7f17ac75ab2192fa1936050c84d14b74049dc04",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
-    "deploy/extensions-ui.js": "54f0362aa53c69e7603f9cc8b66b5c5c3cdc7a8773d60c0a4fccdb843e5d42bb",
-    "deploy/harness-ui.js": "59492f1136e855b64ad4ee642b7fc990fc2fa2a08ab95e451cfc97e3d2d710b9",
+    "deploy/extensions-ui.js": "f441d499acaa22b5602041d6cfbe1151875d6ddd388d89e5bf06f048c1a4fdc1",
+    "deploy/harness-ui.js": "bd3df0018d4d3cb0bab38fbdb9518a2effd8868c608032edc4fd7847dd6f9cc8",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
-    "deploy/patch-webui-queue.py": "504010bb12763677895e6ad1c6a9b7e21a6e9a1eba1c65cfcaea2e9d1749e577",
+    "deploy/patch-webui-queue.py": "e590def2bb3a7afd6f2827ca14a22e9d09e830433465bc3a170e6cffaa0a0a01",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
-    "prepare.py": "c0d91218e7a8d37c73f0c355a440bf05894e9e0b3ed7e18a9aca21efe66ca842",
-    "requirements.txt": "ae89c887ee7f184c91bc6198f6ad7bd10f5d26dcc5713caaa49ce4399ddbf744",
+    "prepare.py": "595d70bf12f7d1bcc99f91a8aa59e5820389f2c7beca0482e5db45d5baea6312",
+    "requirements.txt": "babc2a7fc5e698acca76ce1e692a439763aac16a1c96e7c15a1be1fac2e51344",
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tests/test_addons.py": "99830282121578fffa1268c2588b7b063d0a0ef702ded64d22fad9f3f7a71c27",
     "tests/test_artifacts.py": "d317c18a7294f50d8fa5b2fa5835e992b90d24199253c65585b2fccbb546ce19",
     "tests/test_connectors.py": "5a9c3d7d49cad90b51fe5b5a04f038e3697e9d89bab405b89e0116565d2539b1",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
-    "tests/test_standalone.py": "208698a4f7b6a2b761bacb106be17b6566602d1de2f6d38c87ba9327621ef52d",
-    "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
+    "tests/test_standalone.py": "6f805d88f1306039ee0cbc6d0487cd3359c9745813e0900bbb5a5e9be99a1174",
+    "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2",
+    "tests/test_media_edit.py": "167ac1fd7a401860e40b4ef179091cf4d92703cb08941a964d2848c95dbc4e5f"
   }
 }

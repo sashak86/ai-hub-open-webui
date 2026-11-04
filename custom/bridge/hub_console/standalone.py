@@ -30,7 +30,7 @@ class RequestBodyLimit:
     def __init__(self,app):self.app=app
     async def __call__(self,scope,receive,send):
         if scope['type']!='http':return await self.app(scope,receive,send)
-        path=scope.get('path','');limit=46*1024*1024 if path=='/v1/jobs' else 33*1024*1024 if path.startswith(('/v1/chat-workspace','/ai-hub/api/workspace')) else 512*1024
+        path=scope.get('path','');limit=44*1024*1024 if path in {'/v1/media','/ai-hub/api/media'} and scope.get('method')=='POST' else 46*1024*1024 if path=='/v1/jobs' else 33*1024*1024 if path.startswith(('/v1/chat-workspace','/ai-hub/api/workspace')) else 512*1024
         if not path.startswith(('/v1/','/ai-hub/api/')):return await self.app(scope,receive,send)
         size=0
         async def limited():
@@ -142,7 +142,7 @@ def create_app():
         chunks=[];size=0
         async for chunk in request.stream():
             size+=len(chunk)
-            if size>33*1024*1024:raise HTTPException(413,'Request too large')
+            if size>(44*1024*1024 if path=='media' else 33*1024*1024):raise HTTPException(413,'Request too large')
             chunks.append(chunk)
         headers={'Authorization':'Bearer '+token,'X-WebUI-User':hashlib.sha256(user['id'].encode()).hexdigest(),'Content-Type':request.headers.get('content-type','application/json')}
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://bridge',timeout=None) as bridge:

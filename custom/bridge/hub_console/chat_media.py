@@ -5,6 +5,9 @@ is recorded before I/O and is never automatically replayed after an interruption
 """
 from __future__ import annotations
 import asyncio
+import base64
+import io
+from PIL import Image, ImageOps
 import contextlib
 import json
 import hashlib
@@ -72,6 +75,81 @@ def workflow(model,prompt,seed):
       '5':{'class_type':'KSampler','inputs':{'model':['1',0],'positive':['2',0],'negative':['3',0],'latent_image':['4',0],'seed':seed,'steps':8 if xl else 20,'cfg':1.0 if xl else 7.0,'sampler_name':'euler','scheduler':'sgm_uniform' if xl else 'normal','denoise':1.0}},
       '6':{'class_type':'VAEDecodeTiled' if xl else 'VAEDecode','inputs':{'samples':['5',0],'vae':['1',2],**({'tile_size':512,'overlap':64,'temporal_size':64,'temporal_overlap':8} if xl else {})}},
       '9':{'class_type':'SaveImage','inputs':{'images':['6',0],'filename_prefix':'workbench'}}}
+
+
+def decode_image(value,mask=False):
+    if not isinstance(value,str) or len(value)>22*1024*1024:raise HTTPException(422,'Изображение слишком большое (максимум 16 МБ)')
+    try:
+        raw=base64.b64decode(value,validate=True)
+        with Image.open(io.BytesIO(raw)) as im:
+            if im.width*im.height>16_777_216 or max(im.size)>4096:raise ValueError('dimensions')
+            if im.format not in {'PNG','JPEG','WEBP'}:raise ValueError('format')
+            im.load();return ImageOps.exif_transpose(im).convert('L' if mask else 'RGB')
+    except Exception:raise HTTPException(422,'Нужен корректный PNG/JPEG/WebP до 4096 пикселей и 16 мегапикселей') from None
+
+def prepared_inputs(body):
+    mode=body.get('mode','text')
+    if mode not in {'text','reference','inpaint'}:raise HTTPException(422,'Неизвестный режим изображения')
+    if mode=='text':
+        if body.get('source_base64') or body.get('mask_base64'):raise HTTPException(422,'Выберите режим референса или выделенной области')
+        return mode,None,None
+    source=decode_image(body.get('source_base64'))
+    mask=None
+    if mode=='inpaint':
+        mask=decode_image(body.get('mask_base64'),True)
+        if mask.size!=source.size or not mask.getbbox():raise HTTPException(422,'Маска должна совпадать с исходником и содержать выделение')
+        # White edits, black preserves. Normalize antialiased brush edges deterministically.
+        mask=mask.point(lambda x:255 if x>=128 else 0)
+        if not mask.getbbox():raise HTTPException(422,'Выделите область для изменения')
+    return mode,source,mask
+
+def input_digest(mode,source,mask):
+    h=hashlib.sha256(mode.encode())
+    for im in (source,mask):
+        if im is not None:h.update(str(im.size).encode());h.update(im.tobytes())
+    return h.hexdigest()
+
+def edit_workflow(j,prompt,image_name,mask_name=None):
+    graph=workflow(j['model'],prompt,j['seed'])
+    graph['10']={'class_type':'LoadImage','inputs':{'image':image_name}}
+    graph['4']={'class_type':'VAEEncodeTiled','inputs':{'pixels':['10',0],'vae':['1',2],'tile_size':512,'overlap':64,'temporal_size':64,'temporal_overlap':8}}
+    if mask_name:
+        graph['11']={'class_type':'LoadImage','inputs':{'image':mask_name}}
+        graph['12']={'class_type':'ImageToMask','inputs':{'image':['11',0],'channel':'red'}}
+        graph['13']={'class_type':'SetLatentNoiseMask','inputs':{'samples':['4',0],'mask':['12',0]}}
+        graph['5']['inputs']['latent_image']=['13',0]
+    graph['5']['inputs']['denoise']=j.get('strength',0.65)
+    return graph
+
+def composite_result(p,raw,j):
+    with Image.open(io.BytesIO(raw)) as generated:result=generated.convert('RGB')
+    with Image.open(p/'source.png') as source:original=source.convert('RGB')
+    if j.get('edit_crop'):
+        box=tuple(j['edit_crop']);patch=result.resize((box[2]-box[0],box[3]-box[1]),Image.Resampling.LANCZOS);result=original.copy();result.paste(patch,box[:2])
+    else:result=result.resize(original.size,Image.Resampling.LANCZOS)
+    if j['mode']=='inpaint':
+        with Image.open(p/'mask.png') as mask:result=Image.composite(result,original,mask.convert('L'))
+    result.save(p/'image.png',format='PNG')
+
+async def upload_inputs(c,p,j):
+    with Image.open(p/'source.png') as im:source=im.convert('RGB')
+    mask=None
+    if j['mode']=='inpaint':
+        with Image.open(p/'mask.png') as im:mask=im.convert('RGB')
+        box=mask.getbbox();pad=max(48,round(max(box[2]-box[0],box[3]-box[1])*.25))
+        box=(max(0,box[0]-pad),max(0,box[1]-pad),min(source.width,box[2]+pad),min(source.height,box[3]+pad))
+        source=source.crop(box);mask=mask.crop(box);j['edit_crop']=list(box);update(p,edit_crop=list(box))
+    scale=(1024/max(source.size)) if mask is not None else min(1,1024/max(source.size))
+    size=tuple(max(64,round(v*scale/8)*8) for v in source.size)
+    source=source.resize(size,Image.Resampling.LANCZOS)
+    names=[]
+    for name,im in [('source',source)]+([('mask',mask.resize(size,Image.Resampling.NEAREST))] if mask is not None else []):
+        buf=io.BytesIO();im.save(buf,format='PNG');filename='workbench-'+j['id']+'-'+name+'.png'
+        r=await c.post('/upload/image',files={'image':(filename,buf.getvalue(),'image/png')},data={'type':'input','overwrite':'false'});r.raise_for_status()
+        record=r.json();returned=record.get('name','')
+        if returned!=filename or record.get('subfolder',''):raise ValueError('Unexpected ComfyUI upload name')
+        names.append(returned)
+    return names
 
 async def ready(request,cfg):
     """Optional ai-hub dispatcher; never evict a model to make space."""
@@ -169,7 +247,10 @@ async def submit(request,p):
             if q.get('queue_running') or q.get('queue_pending'):raise HTTPException(409,'ComfyUI занят. Задание не отправлялось; повторите после завершения текущей генерации.')
             update(p,status='submitting',started_at=time.time(),message='Передаём задание в ComfyUI')
             # From this point a network failure is ambiguous: never resend.
-            r=await c.post('/prompt',json={'prompt':workflow(j['model'],effective,j['seed'])});r.raise_for_status()
+            graph=workflow(j['model'],effective,j['seed'])
+            if j.get('mode','text')!='text':
+                names=await upload_inputs(c,p,j);graph=edit_workflow(j,effective,*names)
+            r=await c.post('/prompt',json={'prompt':graph});r.raise_for_status()
             ident=r.json().get('prompt_id')
             if not ident:raise HTTPException(502,'ComfyUI отклонил workflow')
             update(p,status='running',prompt_id=ident,message='Генерация выполняется')
@@ -199,7 +280,10 @@ async def _refresh(request,p):
                     if not item.get('filename'):raise ValueError('No output')
                     image=await c.get('/view',params={k:item[k] for k in ('filename','subfolder','type') if k in item});image.raise_for_status()
                     if not image.content.startswith(b'\x89PNG\r\n\x1a\n') or len(image.content)>32*1024*1024:raise ValueError('Invalid PNG')
-                    dest=p/'image.png';dest.write_bytes(image.content);dest.chmod(0o600)
+                    dest=p/'image.png'
+                    if j.get('mode','text')!='text':composite_result(p,image.content,j)
+                    else:dest.write_bytes(image.content)
+                    dest.chmod(0o600)
                     ended=next((data.get('timestamp',0)/1000 for event,data in reversed(h.get('status',{}).get('messages',[])) if event=='execution_success' and data.get('timestamp')),time.time())
                     return update(p,status='completed',finished_at=ended,message='Изображение готово',mime='image/png')
         except (httpx.HTTPError,ValueError,KeyError,IndexError):pass
@@ -220,10 +304,21 @@ def install(app,owner_setup):
         return {'enabled':enabled,'default_model':cfg.get('default_model','sd15'),'animation_available':enabled and bool(shutil.which('ffmpeg')),'models':models,'jobs':[summary(j) for j in listing(request)],'notes':'Локальная генерация. Запросы и результаты хранятся у владельца; облачная оплата не используется.'}
     @app.post('/v1/media')
     async def create(request:Request):
-        owner_setup(request);who=owner_id(request);cfg=config(request);body=await payload(request)
+        owner_setup(request);who=owner_id(request);cfg=config(request)
+        raw=bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw)>44*1024*1024:raise HTTPException(413,'Слишком большой пакет изображений')
+        try:body=json.loads(raw)
+        except (ValueError,UnicodeDecodeError):raise HTTPException(422,'Некорректный JSON')
+        if not isinstance(body,dict):raise HTTPException(422,'Некорректный запрос')
+        mode,source,mask=prepared_inputs(body);digest=input_digest(mode,source,mask)
+        strength=body.get('strength',0.85 if mode=='inpaint' else 0.65)
+        if isinstance(strength,bool) or not isinstance(strength,(int,float)) or not 0.1<=strength<=1:raise HTTPException(422,'Сила изменения: от 0.1 до 1')
         model=body.get('model',cfg.get('default_model','sd15'));prompt=text(body.get('prompt',''),1000).strip()
         if not prompt:raise HTTPException(422,'Введите описание изображения')
         if not cfg.get('enabled') or model not in cfg.get('models',[]) or model not in MODELS or MODELS[model]['kind']!='image':raise HTTPException(409,'Выбранный генератор не подключён')
+        if mode!='text' and model not in {'sd15','sdxl-lightning'}:raise HTTPException(422,'Редактирование доступно для SDXL и SD1.5')
         seed=body.get('seed',int(time.time())%2**32)
         if isinstance(seed,bool) or not isinstance(seed,int) or not 0<=seed<2**32:raise HTTPException(422,'Некорректный seed')
         key=text(body.get('client_request_id',''),240)
@@ -232,7 +327,7 @@ def install(app,owner_setup):
             prior=base(request)/who/ident
             if (prior/'job.json').is_file():
                 j=load(prior/'job.json',{})
-                if j.get('prompt')!=prompt or j.get('model')!=model:raise HTTPException(409,'Идентификатор запроса уже использован для другого изображения')
+                if j.get('prompt')!=prompt or j.get('model')!=model or j.get('input_digest',input_digest('text',None,None))!=digest or j.get('strength',0.65)!=strength:raise HTTPException(409,'Идентификатор запроса уже использован для другого изображения')
                 return summary(await refresh(request,prior))
             for existing in base(request).glob('*/*/job.json'):
                 j=load(existing,{})
@@ -240,7 +335,11 @@ def install(app,owner_setup):
                     if j.get('prompt_id'):await refresh(request,existing.parent);j=load(existing,{})
                     if j.get('status') not in TERMINAL:raise HTTPException(409,'Уже выполняется локальная генерация. Дождитесь завершения.')
             p=base(request)/who/ident;p.mkdir(mode=0o700,parents=True)
-            j=dict(id=ident,model=model,prompt=prompt,seed=seed,chat_id=text(body.get('chat_id',''),200),status='queued',message='Подготовка генератора',created_at=time.time(),width=MODELS[model]['width'],height=MODELS[model]['height']);atomic(p/'job.json',j)
+            if source is not None:source.save(p/'source.png');(p/'source.png').chmod(0o600)
+            if mask is not None:mask.save(p/'mask.png');(p/'mask.png').chmod(0o600)
+            j=dict(mode=mode,input_digest=digest,strength=strength,id=ident,model=model,prompt=prompt,seed=seed,chat_id=text(body.get('chat_id',''),200),status='queued',message='Подготовка генератора',created_at=time.time(),width=MODELS[model]['width'],height=MODELS[model]['height']);
+            if source is not None:j.update(width=source.width,height=source.height)
+            atomic(p/'job.json',j)
             task=asyncio.create_task(submit(request,p));app.state.media_tasks.add(task);app.state.media_by_id[ident]=task;task.add_done_callback(app.state.media_tasks.discard);task.add_done_callback(lambda t:app.state.media_by_id.pop(ident,None))
         return summary(j)
     @app.post('/v1/media/{ident}/animate')
