@@ -249,7 +249,7 @@ class Pipe:
                 if started:
                     try:
                         timestamp = float(started) if isinstance(started, (int,float)) else datetime.fromisoformat(started.replace('Z','+00:00')).timestamp()
-                        event['elapsed'] = max(float(event.get('elapsed') or 0), datetime.now().timestamp() - timestamp)
+                        event['elapsed'] = max(float(event.get('elapsed') or 0), float(event.get('finished_at') or timestamp) - timestamp)
                     except (ValueError,TypeError):
                         pass
                 event['description'] = {'completed':'Завершено','failed':'Запрос завершился с ошибкой','cancelled':'Остановлено','interrupted':'Прервано'}[event['status']]
@@ -296,6 +296,8 @@ class Pipe:
             job_id = job['id']
             await emit(job)
             seq = 0
+            progress=[]
+            final_text=''
             while True:
                 try:
                     async with client.stream('GET', f'/v1/jobs/{job_id}/events', params={'after': seq}, headers=headers) as stream:
@@ -313,14 +315,34 @@ class Pipe:
                                 continue
                             seq = max(seq, current)
                             if kind == 'text':
-                                yield event.get('text', '')
+                                progress.append(event.get('text',''))
+                                if event.get('channel')!='final':await emit({'status':'running','description':event.get('text','').strip()[:500] or 'Агент готовит ответ','id':job_id})
+                            elif kind == 'final':
+                                final_text=event.get('text','')
                             elif kind == 'status':
                                 await emit({**event, 'id': job_id})
                             elif kind in {'done', 'error'}:
-                                state = event.get('status') or ('failed' if kind == 'error' else 'completed')
-                                await emit({**event, 'id': job_id, 'status': state})
-                                if kind == 'error':
-                                    yield '\n\nНе удалось завершить запрос. ' + str(event.get('message') or event.get('error') or 'Проверьте подключение к агенту.')[:500]
+                                # Error is followed by durable done; let completion own the final.
+                                if kind=='error':continue
+                                result=await client.get(f'/v1/jobs/{job_id}',headers=headers)
+                                result.raise_for_status()
+                                saved=result.json()
+                                state=saved.get('status') or event.get('status','failed')
+                                await emit({**saved,'id':job_id,'status':state})
+                                answer=saved.get('final_text') or final_text
+                                if not answer:
+                                    answer=''.join(progress).strip() if state=='completed' else {'cancelled':'Запрос остановлен пользователем. Завершение задачи не подтверждено.','interrupted':'Исполнитель прерван; запрос автоматически не повторялся.'}.get(state,'Агент не завершил запрос. Вывод сохранён; автоматического повтора нет.')
+                                yield answer or 'Агент завершил выполнение без итогового текста. Результат задачи не подтверждён.'
+                                from datetime import timezone,timedelta
+                                zone=timezone(timedelta(hours=3))
+                                def stamp(value):
+                                    return datetime.fromtimestamp(value,zone).strftime('%H:%M:%S') if isinstance(value,(int,float)) else 'не запускался'
+                                start=saved.get('started_at');end=saved.get('finished_at')
+                                duration=max(0,end-start) if isinstance(start,(int,float)) and isinstance(end,(int,float)) else 0
+                                queue=max(0,(start or end or saved.get('created_at',0))-saved.get('created_at',0))
+                                day=datetime.fromtimestamp(end,zone).strftime('%d.%m.%Y') if isinstance(end,(int,float)) else 'Время завершения отсутствует'
+                                waiting=f' · очередь {queue:.1f} с' if queue>=1 else ''
+                                yield f"\n\n---\n{day} · {stamp(start)}–{stamp(end)} (+03:00) · {int(duration)//60}м {int(duration)%60}с{waiting}"
                                 return
                 except asyncio.CancelledError:
                     # A disconnect must never stop a durable task. /stop is explicit.

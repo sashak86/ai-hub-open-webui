@@ -59,6 +59,7 @@ def patch(source, output):
     (output/'chunks'/CHAT).write_text(chat)
     (output/'ai-hub/queue-store.js').write_text(Path(__file__).with_name('queue-store.js').read_text())
     (output/'ai-hub/extensions-ui.js').write_text(Path(__file__).with_name('extensions-ui.js').read_text())
+    (output/'ai-hub/artifacts-ui.js').write_text(Path(__file__).with_name('artifacts-ui.js').read_text())
     (output/'ai-hub/harness-ui.js').write_text(Path(__file__).with_name('harness-ui.js').read_text())
     (output/'ai-hub/assets').mkdir(exist_ok=True)
     (output/'ai-hub/assets/sasha-avatar.png').write_bytes(Path(__file__).with_name('assets').joinpath('sasha-avatar.png').read_bytes())

@@ -18,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 from fastapi import HTTPException,Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse,JSONResponse,Response
 from .chat_worker import atomic,load
 from .system import as_user_kwargs,user_env
 
@@ -80,7 +80,7 @@ def scoped_job(request,ident):
 def summary(folder):
     desc=load(folder/'request.json',{});state=load(folder/'state.json',{})
     return {**state,'id':desc.get('id'),'model':desc.get('model'),'created_at':desc.get('created_at'),
-                'started_at':state.get('started_at'),'elapsed':round(max(0,(state.get('finished_at') or time.time())-state.get('started_at',time.time())),1)}
+                'queue_seconds':round(max(0,(state.get('started_at') or state.get('finished_at') or time.time())-desc.get('created_at',time.time())),1),'duration_seconds':round(max(0,(state.get('finished_at') or time.time())-(state.get('started_at') or time.time())),1),'total_seconds':round(max(0,(state.get('finished_at') or time.time())-desc.get('created_at',time.time())),1),'time_zone':'UTC','artifacts':state.get('artifacts',[]),'started_at':state.get('started_at'),'elapsed':round(max(0,(state.get('finished_at') or time.time())-state.get('started_at',time.time())),1)}
 
 
 def start_worker(request,chat):
@@ -119,6 +119,8 @@ def install(app,owner_setup,validate_live):
     from .chat_addons import install as install_addons
     install_addons(app,owner_setup)
     install_workspace(app,owner_setup)
+    from .chat_connectors import install as install_connectors
+    install_connectors(app,owner_setup)
 
     @app.get('/v1/jobs/models')
     async def models(request:Request):
@@ -179,7 +181,7 @@ def install(app,owner_setup,validate_live):
             return summary(folder)
         outstanding=sum(1 for folder in (root/who).glob('*/job-*') if load(folder/'state.json',{}).get('status') not in TERMINAL)
         if outstanding>=20:raise HTTPException(429,'Too many queued jobs')
-        cwd=Path(request.state.principal.get('chat_cwd',request.state.principal.get('cwd','/srv/projects'))).resolve()
+        cwd=Path(request.state.principal.get('chat_cwd',request.state.principal.get('cwd',str(Path.home())))).resolve()
         roots=[Path(p).resolve() for p in request.state.principal.get('roots',[])]
         if not cwd.is_dir() or not any(cwd.is_relative_to(r) for r in roots):raise HTTPException(403,'Working directory is not granted')
         attachments=body.get('attachments',[])
@@ -213,6 +215,7 @@ def install(app,owner_setup,validate_live):
             own(staged_path,request);files.append({'name':name,'mime':mime,'path':str(path)})
         desc=dict(id=ident,model=model,text=text,cwd=str(cwd),created_at=time.time(),attachments=files,history=clean,history_supplied='history' in body)
         from .chat_extensions import snapshot,digest
+        from .chat_connectors import native_extension
         desc['extensions']=snapshot(request)
         desc['extensions_hash']=digest(desc['extensions'])
         from .chat_harness import prepare,root as harness_root
@@ -220,9 +223,13 @@ def install(app,owner_setup,validate_live):
         await prepare(request,body,desc,[])
         from .chat_addons import prepare as prepare_addons
         await prepare_addons(request,body,desc)
+        desc['extensions']+=native_extension(request)
+        desc['extensions_hash']=digest(desc['extensions'])
         atomic(staging/'request.json',desc);own(staging/'request.json',request)
         stopped_early=load(chat/'stop.json',{}).get('at',0)>=received_at
         atomic(staging/'state.json',{'status':'cancelled' if stopped_early else 'queued','description':'Отменено до запуска' if stopped_early else 'В очереди','created_at':desc['created_at']});own(staging/'state.json',request)
+        if stopped_early:
+            atomic(staging/'state.json',{'status':'cancelled','description':'Отменено до запуска','created_at':desc['created_at'],'finished_at':time.time(),'final_text':'Запрос отменён до запуска. Агент не выполнял задачу.','artifacts':[]});own(staging/'state.json',request)
         staging.rename(folder)
         atomic(index,{'owner':who,'chat':chatname,'folder':folder.name})
         start_worker(request,chat)
@@ -231,6 +238,19 @@ def install(app,owner_setup,validate_live):
     @app.get('/v1/jobs/{ident}')
     async def read(request:Request,ident:str):
         owner_setup(request);return summary(scoped_job(request,ident))
+
+    @app.get('/v1/jobs/{ident}/artifacts/{artifact_id}/export')
+    async def export_artifact(request:Request,ident:str,artifact_id:str,format:str='json'):
+        owner_setup(request);folder=scoped_job(request,ident)
+        artifact=next((a for a in load(folder/'state.json',{}).get('artifacts',[]) if a.get('id')==artifact_id),None)
+        if not artifact:raise HTTPException(404,'Artifact not found')
+        from .chat_artifacts import validate,csv_export
+        try:validate({k:v for k,v in artifact.items() if k!='id'})
+        except (AssertionError,ValueError,TypeError,KeyError):raise HTTPException(422,'Invalid artifact')
+        headers={'Cache-Control':'no-store','Content-Disposition':'attachment; filename="artifact-'+artifact_id+'.'+('csv' if format=='csv' else 'json')+'"'}
+        if format=='json':return JSONResponse(artifact,headers=headers)
+        if format=='csv' and artifact['type']=='table':return Response(csv_export(artifact),media_type='text/csv',headers=headers)
+        raise HTTPException(422,'Unsupported export format')
 
     @app.post('/v1/jobs/{ident}/cancel')
     async def cancel(request:Request,ident:str):

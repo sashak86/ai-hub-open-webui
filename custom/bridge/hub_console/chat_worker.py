@@ -36,10 +36,14 @@ class Events:
         self.seq=sum(1 for _ in (folder/'events.jsonl').open()) if (folder/'events.jsonl').exists() else 0
         self.state=load(folder/'state.json', {})
         self.text=''
+        self.final_candidate=''
+        self.last_message=''
         self.side_effects=False
         self.last_checkpoint=0
     def emit(self, event):
-        if event.get('type')=='text':self.text+=event.get('text','')
+        if event.get('type')=='text':
+            self.text+=event.get('text','')
+            event=dict(event,channel=event.get('channel','commentary'))
         if event.get('type')=='status' and any(t in event.get('description','') for t in ('инструмент','команд','файлы')):self.side_effects=True
         self.seq+=1
         event=dict(event, seq=self.seq, at=time.time())
@@ -55,7 +59,28 @@ class Events:
                     from .chat_harness import checkpoint
                     checkpoint(Path(h['root']),h['run_id'],event.get('status','running'),description=event.get('description',''),handoff=self.text[-16000:],side_effects=self.side_effects)
                     self.last_checkpoint=time.monotonic()
+    def finalize(self,status):
+        from .chat_artifacts import extract
+        fallback={'failed':'Агент не завершил запрос. Выполненные действия и проверки подтверждены только сообщениями о ходе работы; автоматического повтора нет.', 'cancelled':'Запрос остановлен пользователем. Завершение задачи не подтверждено.', 'interrupted':'Исполнитель прерван. Завершение задачи не подтверждено; запрос автоматически не повторялся.'}
+        candidate=self.final_candidate or self.last_message
+        source='provider' if candidate and status=='completed' else 'status'
+        if status!='completed':
+            observed=(self.last_message or self.text).strip()[-1500:]
+            candidate=fallback.get(status,'Запрос не завершён.')
+            if observed:candidate+='\n\nПоследнее сообщение агента (может описывать незавершённую работу):\n'+observed
+        candidate=candidate.strip() or 'Агент завершил выполнение без итогового текста. Результат задачи не подтверждён.'
+        text,artifacts=extract(candidate)
+        if not text:text='Подготовлены интерактивные материалы.'
+        desc=load(self.folder/'request.json',{})
+        if artifacts:text+='\n\n[Открыть интерактивное окно](/ai-hub/artifacts/'+desc.get('id','')+')'
+        self.state.update(final_text=text,artifacts=artifacts,final_source=source)
+        atomic(self.folder/'state.json',self.state)
+        self.emit({'type':'final','text':text,'artifacts':artifacts,'status':status})
+
     def status(self,status,description,**extra):
+        if status in ('completed','failed','cancelled','interrupted'):
+            extra.setdefault('finished_at',time.time())
+            self.finalize(status)
         self.emit(dict(type='status',status=status,description=description,**extra))
 
 
@@ -76,7 +101,8 @@ def native_command(desc,native_id):
 
 
 def prompt(desc):
-    text=desc['text']
+    from .chat_artifacts import INSTRUCTIONS
+    text=desc['text']+INSTRUCTIONS
     if desc.get('extension_prompt'):text+=desc['extension_prompt']
     if desc.get('harness_prompt'):text+=desc['harness_prompt']
     if desc.get('addon_prompt'):text+=desc['addon_prompt']
@@ -87,7 +113,7 @@ def prompt(desc):
 
 
 def visible_hash(messages):
-    normalized=[{'role':r['role'],'content':r['content'].strip().replace('\r\n','\n')} for r in messages]
+    normalized=[{'role':r['role'],'content':re.sub(r'\n\n---\n[0-9]{2}\.[0-9]{2}\.[0-9]{4} · [^\n]*\(\+03:00\) · [0-9]+м [0-9]+с[^\n]*$', '', r['content'].strip().replace('\r\n','\n'))} for r in messages]
     return hashlib.sha256(json.dumps(normalized,ensure_ascii=False,sort_keys=True).encode()).hexdigest()
 
 
@@ -144,7 +170,10 @@ def _native_turn(desc,native_id,events,cancelled):
                             item=row.get('item',{});typ=item.get('type','')
                             if typ=='agent_message' and row['type']=='item.completed':
                                 text=item.get('text','')
-                                if text:events.emit({'type':'text','text':text+'\n\n'});text_seen=True
+                                if text:
+                                    events.last_message=text
+                                    if item.get('phase')=='final_answer' or item.get('channel')=='final':events.final_candidate=text
+                                    events.emit({'type':'text','text':text+'\n\n','channel':'final' if item.get('phase')=='final_answer' or item.get('channel')=='final' else 'commentary'});text_seen=True
                             elif typ in ('command_execution','file_change','mcp_tool_call','web_search','image_view'):
                                 label={'command_execution':'Выполняет команду','file_change':'Изменяет файлы','mcp_tool_call':'Использует инструмент','web_search':'Ищет информацию','image_view':'Анализирует изображение'}[typ]
                                 events.side_effects=True
@@ -170,11 +199,14 @@ def _native_turn(desc,native_id,events,cancelled):
                             if event.get('type')=='content_block_start' and event.get('content_block',{}).get('type')=='tool_use':
                                 events.side_effects=True
                                 events.status('running','Использует инструмент '+re.sub('[^A-Za-z0-9_.-]','',event['content_block'].get('name',''))[:80])
+                        if row.get('type')=='assistant':
+                            events.last_message=''.join(b.get('text','') for b in row.get('message',{}).get('content',[]) if b.get('type')=='text')
                         if row.get('type')=='assistant' and not partial:
                             for block in row.get('message',{}).get('content',[]):
                                 if block.get('type')=='text':events.emit({'type':'text','text':block.get('text','')});text_seen=True
                         if row.get('type')=='result':
                             usage=row.get('usage',{});completed=not row.get('is_error',False)
+                            if isinstance(row.get('result'),str):events.final_candidate=row['result']
             if time.monotonic()-last_status>3:
                 events.status('running',events.state.get('description','Работает'));last_status=time.monotonic()
             if proc.poll() is not None and not reads:
@@ -274,11 +306,12 @@ def main(chat):
                     native_id=None
                     h=desc['harness'];checkpoint(Path(h['root']),h['run_id'],'running',switch_from=model,switch_to=attempts[attempt_index+1],reason=str(failure))
                     events.status('running','Переключает модель до начала выполнения: '+attempts[attempt_index+1],selected_model=attempts[attempt_index+1])
-            if result.get('native_id'):
-                visible=desc.get('history',[])+[{'role':'user','content':desc['text']},{'role':'assistant','content':events.text}]
-                atomic(chat/'thread.json',{'native_id':result['native_id'],'provider':provider,'visible_hash':visible_hash(visible),'extensions_hash':desc.get('extensions_hash','')})
-            events.status('completed','Готово',finished_at=time.time(),usage=result.get('usage',{}))
+            if not events.final_candidate and provider not in ('codex','claude'):events.final_candidate=result.get('final_text') or events.text
             finish(desc,events,'completed')
+            events.status('completed','Готово',finished_at=time.time(),usage=result.get('usage',{}))
+            if result.get('native_id'):
+                visible=desc.get('history',[])+[{'role':'user','content':desc['text']},{'role':'assistant','content':events.state.get('final_text',events.text)}]
+                atomic(chat/'thread.json',{'native_id':result['native_id'],'provider':provider,'visible_hash':visible_hash(visible),'extensions_hash':desc.get('extensions_hash','')})
             events.emit({'type':'done','status':'completed'})
         except InterruptedError:
             finish(desc,events,'cancelled')

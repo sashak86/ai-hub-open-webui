@@ -6,7 +6,9 @@ This branch starts from **Open WebUI v0.12.4**, commit `33c1978d5bad52a31df75ea5
 
 ## Features
 
-- Native Codex/Claude Code tasks with durable queue, streaming progress, files, cancellation, and stable message IDs.
+- Native Codex/Claude Code tasks with durable queue, streaming progress, a separate final result, UTC timestamps and task duration, files, cancellation, and stable message IDs.
+- Interactive tables, line/bar/pie charts, quizzes and dashboards with a fullscreen viewer and JSON/CSV exports; provider HTML/JavaScript never executes.
+- Personal Telegram, Slack, Discord, Instagram Professional, Facebook Pages, Gmail, Outlook, IMAP/SMTP, HTTP and MCP connections. Accounts require your own credentials and API permissions; a catalog entry is not a connected account.
 - Compact usage ring or dollar balance, with independent quota windows and reset times where providers supply them. Unknown values remain unknown.
 - A harness panel after the extension button: manual/automatic model routing, complexity preferences, available quotas, token limits, and credit policies. Cross-model continuation carries saved context and marks interrupted work rather than blindly repeating side effects.
 - Project memory, plans, checkpoints, reusable learning notes, and portable Markdown `HANDOFF.md` export. These are stored artifacts and a reuse loop, not model weight training.
@@ -68,6 +70,28 @@ Open **Extensions → Workbench add-ons** to install, enable, configure and test
 The shared turn hooks run with the harness switch either on or off. Native coding agents can use the downloaded skill references on disk. Text-only API models receive the bounded instructions and recalled context but have no filesystem tools, Claude hooks or Cowork delivery features. Headroom processes the context supplied by Workbench before the call; this does not automatically intercept every internal tool response of an independently running CLI. Memory writes use the worker's explicit save API, without launching a paid summarization model.
 
 Installation recipes pin the reviewed package version and keep a private installation log. Review the installed service and connection status before use. Third-party package licenses apply separately from this fork's code license.
+
+## Interactive results and personal services
+
+A completed task saves a final answer separately from streaming progress. Start/end timestamps use UTC; queue time, execution duration and total time are distinct. Cancelled, interrupted and failed jobs keep an honest incomplete result. Interactive data is validated against bounded declarative table/chart/quiz/dashboard schemas. Open the result window to sort/filter a table, inspect a chart, answer a quiz, or expand the view; exports retain the private owner boundary. CSV export neutralizes spreadsheet formula prefixes. The fork does not execute arbitrary model-generated HTML/JavaScript applications.
+
+Open **Services** inside extension settings to create an owner-private connection. Saving means configured; **Check** performs the real provider request before reporting connected. Tokens stay server-side and are masked. No server-global accounts, bot tokens or native CLI credentials are imported into a browser user's service list. New native Codex/Claude tasks expose permitted read tools through a local MCP adapter. Text-only API models still have no autonomous function calling: explicitly add a read result to the next prompt when useful; external content remains untrusted data.
+
+| Service | Setup and supported operations |
+| --- | --- |
+| Telegram | Your BotFather token; getMe/getChat and explicitly approved sendMessage. No personal account history, getUpdates polling, webhook or offset changes. |
+| Slack / Discord | Your own workspace app/user token or invited Discord bot; permitted search/channel reads and explicitly approved sends. Slack search requires a user token with search:read. |
+| Instagram Professional | Business/Creator account, Meta app and Instagram Login token/account ID; profile and media reads only. Personal accounts, publishing and DM are not implemented. Instagram Login does not require a linked Facebook Page. Other-user access may require Meta app review. |
+| Facebook Pages | Page ID/access token; page reads and an explicitly approved text post. Appropriate pages_read_engagement/pages_manage_posts permissions remain required. |
+| Gmail / Outlook | Your Web OAuth app with an exact registered HTTPS redirect. Read-only mailbox access by default; optionally permit draft creation. Gmail gmail.compose or Microsoft Mail.ReadWrite enables drafts; these adapters never send email. |
+| IMAP / SMTP | Your mail host, SMTP host, username and app password; TLS IMAP993 INBOX search/read with no flag changes, TLS SMTP465 send only after approval. |
+| HTTP / MCP | Explicit HTTPS endpoint; bearer token optional for services without authentication. HTTP relative GET/approved POST. MCP initializes a JSON Streamable HTTP session; SSE-only/stdio remote servers are unsupported. All remote tool calls require approval. |
+
+OAuth setup requires your own registered client_id, client_secret and exact redirect_uri. Save those fields without an access token, start OAuth, open the provider URL and paste the returned callback URL into the connection panel. No provider app is created on your behalf. Google/Microsoft use PKCE S256; owner-bound state expires after ten minutes and is single-use. A refresh action uses your granted refresh token; if none was issued, sign in again. Instagram long-lived token exchange/refresh is not implemented; supply a valid token or repeat login. Restricted Google scopes and Meta app-review requirements still apply.
+
+Each write or draft displays the exact tool arguments and requires explicit confirmation. Approval expires after three minutes, is owner-bound, cannot be reused and cannot authorize changed arguments. The local native MCP server publishes read tools only. Network errors never automatically replay writes. Remove deletes local credentials; revoke access separately in the provider's settings. Explicit HTTP/MCP endpoints can reach your configured private network, so they are not a network sandbox. Native coding agents share their OS user's trust boundary as in the rest of this workbench.
+
+Useful references: [Telegram](https://core.telegram.org/bots/api), [Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login), [Gmail API](https://developers.google.com/workspace/gmail/api/reference/rest), [Microsoft draft messages](https://learn.microsoft.com/en-us/graph/api/user-post-messages?view=graph-rest-1.0), [MCP HTTP transport](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
 ## Projects, external storage, and backups
 

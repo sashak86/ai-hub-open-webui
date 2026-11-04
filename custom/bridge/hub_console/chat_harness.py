@@ -649,7 +649,8 @@ def run_api(desc,events,cancelled):
         entry=api_connection(desc)
     if not entry.get('api_key') and provider!='omniroute':raise RuntimeError('auth_required')
     if desc.get('attachments'):raise RuntimeError('attachments_unsupported')
-    messages=list(desc.get('history',[]))+[dict(role='user',content=desc['text']+desc.get('harness_prompt','')+desc.get('addon_prompt',''))]
+    from .chat_artifacts import INSTRUCTIONS
+    messages=list(desc.get('history',[]))+[dict(role='user',content=INSTRUCTIONS+desc['text']+desc.get('harness_prompt','')+desc.get('addon_prompt',''))]
     usage={};output=False
     with httpx.Client(timeout=httpx.Timeout(660,connect=15),trust_env=False,follow_redirects=False) as client:
         with client.stream('POST',entry['base_url']+'/chat/completions',headers=({'Authorization':'Bearer '+entry['api_key']} if entry.get('api_key') else {}),json={'model':model,'messages':messages,'stream':True,'stream_options':{'include_usage':True}}) as response:

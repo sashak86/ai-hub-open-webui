@@ -104,6 +104,10 @@ def create_app():
         if not hmac.compare_digest(request.headers.get('authorization',''),expected):raise HTTPException(401,'Bridge authentication required')
         request.state.principal={'id':'webui','actions':['jobs'],'roots':[str(workspace)],'cwd':str(workspace)}
     chat_jobs.install(app,auth,lambda request:auth(request))
+    @app.get('/ai-hub/artifacts-ui.js')
+    async def artifact_asset():
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(__file__).resolve().parents[2]/'deploy/artifacts-ui.js',media_type='text/javascript',headers={'Cache-Control':'no-cache'})
     @app.get('/ai-hub/health')
     async def health():return {'ok':True,'name':'Sasha AI Workbench','upstream':'Open WebUI'}
     @app.api_route('/ai-hub/api/{path:path}',methods=['GET','POST','PUT','PATCH','DELETE'])
@@ -118,7 +122,9 @@ def create_app():
         allowed={v for v in os.environ.get('SASHA_WORKBENCH_ALLOWED_USERS','').split(',') if v}
         if user.get('role')!='admin' and user.get('id') not in allowed:raise HTTPException(403,'Workbench is limited to the administrator and explicitly allowed user IDs')
         if path=='limits':target='/v1/jobs/limits'
+        elif re.fullmatch(r'jobs/[a-f0-9]{32}(?:/artifacts/[0-9]{1,2}/export)?',path) and request.method=='GET':target='/v1/'+path
         elif path=='extensions' or path.startswith('extensions/'):target='/v1/chat-extensions'+path[len('extensions'):]
+        elif path=='connectors' or path.startswith('connectors/'):target='/v1/'+path
         elif path=='workspace' or path.startswith('workspace/'):target='/v1/chat-workspace'+path[len('workspace'):]
         elif path=='harness' or path.startswith('harness/'):target='/v1/harness'+path[len('harness'):]
         else:raise HTTPException(404,'Unknown workbench route')
