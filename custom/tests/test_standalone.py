@@ -182,7 +182,7 @@ def test_media_enabled_only_by_explicit_local_endpoint(tmp_path,monkeypatch):
         c.headers.update({'Authorization':'Bearer synthetic-offline-token-for-test-only','X-WebUI-User':'a'*64})
         result=c.get('/v1/media');assert result.status_code==200
         assert result.json()['enabled'] is True
-        assert [r['id'] for r in result.json()['models'] if r['available']]==['sd15']
+        assert [r['id'] for r in result.json()['models'] if r['available']]==['sdxl-lightning']
         import json
         options=json.loads(c.app.state.config_file.read_text())['media_generation']
         assert options['comfy_url']=='http://127.0.0.1:8188' and not options.get('hub_dispatcher')

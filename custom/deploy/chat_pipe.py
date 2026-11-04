@@ -9,6 +9,8 @@ import asyncio
 import base64
 import hashlib
 import json
+import io
+import uuid
 import os
 import re
 from datetime import datetime
@@ -164,8 +166,8 @@ def status_description(event):
 
 def merge_status(history, status):
     history = list(history or [])
-    if (history and status.get('action') == 'ai_hub_job' and status.get('stage_key')
-            and history[-1].get('action') == 'ai_hub_job'
+    if (history and status.get('action') in {'ai_hub_job','ai_hub_media'} and status.get('stage_key')
+            and history[-1].get('action') == status.get('action')
             and history[-1].get('job_id') == status.get('job_id')
             and history[-1].get('stage_key') == status['stage_key']):
         history[-1] = status
@@ -195,6 +197,78 @@ async def status_emitter(metadata, user, fallback):
         if live:
             await live(event)
     return emit
+
+def image_intent(text):
+    """Only an explicit current-user imperative/command, never quoted history."""
+    match=re.match(r'^\s*(?:/image(?:\s+|$)|(?:пожалуйста[, ]+)?(?:нарисуй(?:те)?|(?:создай(?:те)?|сгенерируй(?:те)?)\s+(?:изображение|картинку|рисунок|фото))\s*[:,—-]?\s+)([\s\S]+)$',text,re.I)
+    return match.group(1).strip() if match else None
+
+
+async def media_file(client,job,headers,user):
+    # Use native storage and owner checks, so normal Markdown images survive reload.
+    from open_webui.models.files import Files,FileForm
+    from open_webui.storage.provider import Storage
+    uid=user['id'];fid=str(uuid.uuid5(uuid.NAMESPACE_URL,'sasha-media:'+uid+':'+job['id']))
+    existing=await Files.get_file_by_id_and_user_id(fid,uid)
+    if not existing:
+        response=await client.get('/v1/media/'+job['id']+'/file',headers=headers);response.raise_for_status();raw=response.content
+        if not raw.startswith(b'\x89PNG\r\n\x1a\n') or len(raw)>MAX_BYTES:raise ValueError('Генератор вернул недопустимое изображение.')
+        name='Sasha-'+job['model']+'-'+job['id'][:8]+'.png'
+        _,path=await asyncio.to_thread(Storage.upload_file,io.BytesIO(raw),fid+'.png',{'OpenWebUI-User-Id':uid,'OpenWebUI-File-Id':fid})
+        form=FileForm(id=fid,filename=name,path=path,data={},meta={'name':name,'content_type':'image/png','size':len(raw),'file_hash':hashlib.sha256(raw).hexdigest(),'data':{'media_job_id':job['id']}})
+        try:existing=await Files.insert_new_file(uid,form)
+        except Exception:
+            existing=await Files.get_file_by_id_and_user_id(fid,uid)
+            if not existing:raise ValueError('Не удалось сохранить результат в чат.') from None
+        if not existing:raise ValueError('Не удалось сохранить результат в чат.')
+    return '/api/v1/files/'+fid+'/content'
+
+
+def media_error(response):
+    try:
+        value=response.json();reason=value.get('error',{}).get('message') or value.get('detail')
+        return reason if isinstance(reason,str) else 'Локальная генерация недоступна.'
+    except (ValueError,AttributeError):return 'Локальная генерация недоступна.'
+
+
+async def image_turn(pipe,text,metadata,user,files,images,emitter):
+    if files or images:
+        yield 'Этот локальный режим пока создаёт изображения по описанию. Редактирование загруженного изображения ещё не подключено; исходный файл не изменён.'
+        return
+    owner=identity(user);headers={'X-WebUI-User':owner};prompt=image_intent(text)
+    if not prompt:return
+    async def status(job):
+        if emitter:
+            await emitter({'type':'status','data':{'action':'ai_hub_media','job_id':job.get('id'),'stage_key':job.get('status')+':'+job.get('message',''),'description':'Локальное изображение · '+job.get('message',''),'done':job.get('status') in {'completed','failed','interrupted','cancelled'}}})
+    async with pipe.client() as client:
+        catalog=await client.get('/v1/media',headers=headers)
+        if catalog.status_code>=400:
+            yield media_error(catalog);return
+        options=catalog.json()
+        model=options.get('default_model','sdxl-lightning')
+        key='chat:'+hashlib.sha256((metadata['chat_id']+':'+metadata['message_id']).encode()).hexdigest()
+        result=await client.post('/v1/media',headers=headers,json={'model':model,'prompt':prompt,'chat_id':metadata['chat_id'],'client_request_id':key});
+        if result.status_code>=400:
+            yield media_error(result);return
+        job=result.json();phase=None
+        while True:
+            current=(job.get('status'),job.get('message'))
+            if phase!=current:await status(job);phase=current
+            if job.get('status') in {'completed','failed','interrupted','cancelled'}:break
+            await asyncio.sleep(2)
+            result=await client.get('/v1/media/'+job['id'],headers=headers);result.raise_for_status();job=result.json()
+        if job.get('status')!='completed':
+            yield job.get('message') or 'Изображение не создано. Автоматического повтора нет.';return
+        url=await media_file(client,job,headers,user)
+        name=next((row['name'] for row in options.get('models',[]) if row['id']==job['model']),job['model'])
+        start=job.get('started_at',job['created_at']);end=job.get('finished_at',start);elapsed=max(0,end-job['created_at'])
+        yield '![Сгенерированное изображение]('+url+')\n\n'+name+' · '+str(job['width'])+'×'+str(job['height'])
+        if job.get('translated') and job.get('effective_prompt'):
+            # Plain fenced text, bounded and generated locally; never executable markup.
+            description=re.sub(r'([\\`*_{}\[\]()#+.!>|-])',r'\\\1',job['effective_prompt'][:2500])
+            yield '\n\nОписание для генерации (переведено локально):\n\n> '+description.replace('\n','\n> ')
+        zone=ZoneInfo('Europe/Moscow');a=datetime.fromtimestamp(start,zone).strftime('%H:%M:%S');b=datetime.fromtimestamp(end,zone).strftime('%H:%M:%S')
+        yield '\n\n---\n'+a+'–'+b+' · '+str(round(elapsed,1))+' с · МСК (с подготовкой)'
 
 
 class Pipe:
@@ -232,6 +306,10 @@ class Pipe:
         if not isinstance(chat_id, str) or not isinstance(message_id, str):
             raise ValueError('Сохраните чат перед отправкой агенту.')
         text, images = text_and_images(body.get('messages', []))
+        if image_intent(text) is not None:
+            emitter=await status_emitter(metadata,__user__,__event_emitter__)
+            async for chunk in image_turn(self,text,{**metadata,'message_id':message_id},__user__,__files__,images,emitter):yield chunk
+            return
         history = visible_history(body.get('messages', []))
         attachments = await collect_attachments(__files__, images, __user__)
         model = (body.get('hub_api_model') or body.get('model', '').split('.', 1)[-1])

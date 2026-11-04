@@ -6,7 +6,7 @@ export function cleanupMedia(){clearTimeout(timer);for(const u of urls)URL.revok
 async function imageFile(id){const r=await fetch('/ai-hub/api/media/'+id+'/file',{headers:{Authorization:'Bearer '+localStorage.token},credentials:'same-origin'});if(!r.ok)throw Error('Не удалось загрузить результат');const type=r.headers.get('content-type')||'image/png';return new File([await r.blob()],'Sasha-'+id.slice(0,8)+(type==='video/mp4'?'.mp4':'.png'),{type});}
 export async function renderMedia({content,api,json,message,chatId,isCurrent}){
  cleanupMedia();const state=await api('media');if(!isCurrent())return;
- const intro=el('p','Локальная генерация · Sasha AI Workbench. Результаты сохраняются отдельно и доступны после обновления страницы.');content.append(intro);
+ const intro=el('p','Локальная генерация · Sasha AI Workbench. Можно прямо в чате: «Нарисуй…», «Создай изображение…» или /image … — результат появится в беседе. Галерея сохраняется после обновления страницы.');content.append(intro);
  const form=el('form'),label=el('label','Модель'),select=el('select');select.name='media_model';label.className='hubh-field';label.append(select);
  for(const model of state.models){const option=el('option',model.name+(model.available?'':' — не подключено'));option.value=model.id;option.disabled=!model.available;select.append(option);}
  const available=state.models.find(m=>m.available);if(available)select.value=available.id;

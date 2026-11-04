@@ -98,7 +98,9 @@ def create_app():
     app.state.settings=settings;app.state.chat_jobs_root=root/'chat-jobs'
     config=root/'bridge-config.json'
     comfy=os.environ.get('SASHA_WORKBENCH_COMFY_URL','').rstrip('/')
-    media={'enabled':bool(comfy),'models':['sd15'] if comfy else [],'comfy_url':comfy or 'http://127.0.0.1:8188'}
+    image_model=os.environ.get('SASHA_WORKBENCH_IMAGE_MODEL','sdxl-lightning')
+    if image_model not in {'sdxl-lightning','sd15'}:raise RuntimeError('Unsupported local image model; choose sdxl-lightning or sd15')
+    media={'enabled':bool(comfy),'models':[image_model] if comfy else [],'default_model':image_model,'comfy_url':comfy or 'http://127.0.0.1:8188','translate_model':os.environ.get('SASHA_WORKBENCH_MEDIA_TRANSLATOR',''),'ollama_url':os.environ.get('SASHA_WORKBENCH_MEDIA_OLLAMA_URL','http://127.0.0.1:11434')}
     config.write_text(json.dumps({'media_generation':media,'user':settings.desktop_user,'chat_jobs_dir':str(app.state.chat_jobs_root),'tokens':[{'id':'webui','actions':['jobs'],'roots':[str(workspace)],'cwd':str(workspace)}]}));config.chmod(0o600)
     app.state.config_file=config
     def auth(request):
