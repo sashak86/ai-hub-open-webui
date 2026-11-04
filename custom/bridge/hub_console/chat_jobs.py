@@ -79,8 +79,17 @@ def scoped_job(request,ident):
 
 def summary(folder):
     desc=load(folder/'request.json',{});state=load(folder/'state.json',{})
-    return {**state,'id':desc.get('id'),'model':desc.get('model'),'created_at':desc.get('created_at'),
-                'queue_seconds':round(max(0,(state.get('started_at') or state.get('finished_at') or time.time())-desc.get('created_at',time.time())),1),'duration_seconds':round(max(0,(state.get('finished_at') or time.time())-(state.get('started_at') or time.time())),1),'total_seconds':round(max(0,(state.get('finished_at') or time.time())-desc.get('created_at',time.time())),1),'time_zone':'UTC','artifacts':state.get('artifacts',[]),'started_at':state.get('started_at'),'elapsed':round(max(0,(state.get('finished_at') or time.time())-state.get('started_at',time.time())),1)}
+    # Legacy interrupted states may lack an end instant. Never grow terminal
+    # duration using the time a browser happens to reload the page.
+    end=state.get('finished_at') if state.get('status') in TERMINAL else time.time()
+    start=state.get('started_at');created=desc.get('created_at')
+    duration=round(max(0,end-start),1) if end is not None and start is not None else (0 if end is not None else None)
+    queue_end=start if start is not None else end
+    queue=round(max(0,queue_end-created),1) if queue_end is not None and created is not None else None
+    total=round(max(0,end-created),1) if end is not None and created is not None else None
+    return {**state,'id':desc.get('id'),'model':desc.get('model'),'created_at':created,
+            'started_at':start,'queue_seconds':queue,'duration_seconds':duration,
+            'total_seconds':total,'time_zone':'UTC','artifacts':state.get('artifacts',[]),'elapsed':duration}
 
 
 def start_worker(request,chat):

@@ -48,3 +48,15 @@ def test_exact_generated_footer_keeps_native_context_hash():
     assert visible_hash(original)==visible_hash(displayed)
     changed=[{'role':'assistant','content':'Changed answer\n\n---\n04.11.2026 · 15:15:00 (+03:00) · 0м 12с'}]
     assert visible_hash(original)!=visible_hash(changed)
+
+
+def test_legacy_terminal_has_unknown_duration_not_reload_time(tmp_path,monkeypatch):
+    from hub_console import chat_jobs as jobs,chat_worker as worker
+    worker.atomic(tmp_path/'request.json',{'id':'legacy','created_at':100})
+    worker.atomic(tmp_path/'state.json',{'status':'interrupted','started_at':110})
+    monkeypatch.setattr(jobs.time,'time',lambda:200)
+    first=jobs.summary(tmp_path)
+    monkeypatch.setattr(jobs.time,'time',lambda:99999)
+    second=jobs.summary(tmp_path)
+    assert first==second
+    assert first['duration_seconds'] is None and first['total_seconds'] is None

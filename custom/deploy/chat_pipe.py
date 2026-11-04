@@ -342,7 +342,9 @@ class Pipe:
                                 queue=max(0,(start or end or saved.get('created_at',0))-saved.get('created_at',0))
                                 day=datetime.fromtimestamp(end,zone).strftime('%d.%m.%Y') if isinstance(end,(int,float)) else 'Время завершения отсутствует'
                                 waiting=f' · очередь {queue:.1f} с' if queue>=1 else ''
-                                yield f"\n\n---\n{day} · {stamp(start)}–{stamp(end)} (+03:00) · {int(duration)//60}м {int(duration)%60}с{waiting}"
+                                duration_label=f'{int(duration)//60}м {int(duration)%60}с' if isinstance(end,(int,float)) else 'длительность неизвестна'
+                                end_label=stamp(end) if isinstance(end,(int,float)) else 'неизвестно'
+                                yield f"\n\n---\n{day} · {stamp(start)}–{end_label} (+03:00) · {duration_label}{waiting}"
                                 return
                 except asyncio.CancelledError:
                     # A disconnect must never stop a durable task. /stop is explicit.
