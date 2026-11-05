@@ -20,7 +20,7 @@ def test_browser_owner_credentials_and_explicit_writes(client,monkeypatch):
         base='/ai-hub/api/connectors';owner={'Authorization':'Bearer owner-a'}
         assert client.get(base,headers={'Authorization':'Bearer invalid'}).status_code==401
         catalog=client.get(base+'/catalog',headers=owner).json()['data']
-        assert len(catalog)==10
+        assert any(x['id']=='composio' for x in catalog)
         result=client.post(base,headers=owner,json={'provider':'telegram','credentials':{'token':'synthetic-private-value'},'permissions':['read','send']})
         assert result.status_code==200,result.text
         assert 'synthetic-private-value' not in result.text

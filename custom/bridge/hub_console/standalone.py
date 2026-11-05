@@ -110,6 +110,8 @@ def create_app():
         if not hmac.compare_digest(request.headers.get('authorization',''),expected):raise HTTPException(401,'Bridge authentication required')
         request.state.principal={'id':'webui','actions':['jobs'],'roots':[str(workspace)],'cwd':str(workspace)}
     chat_jobs.install(app,auth,lambda request:auth(request))
+    from .chat_chrome import install as install_chrome
+    install_chrome(app,auth,lambda request:Path.home())
     @app.get('/ai-hub/media-ui.js')
     async def media_asset():
         from fastapi.responses import FileResponse

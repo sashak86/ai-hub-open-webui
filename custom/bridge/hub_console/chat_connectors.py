@@ -30,13 +30,14 @@ CATALOG=[
  entry('telegram','Telegram Bot','messenger',['token'],[tool('profile','read','Bot identity'),tool('chat','read','Get chat by chat_id'),tool('send','send','Send message to chat_id',True)],'https://core.telegram.org/bots/features#botfather','Bot API, not personal Telegram history. The user must start the bot or add it to the group.'),
  entry('slack','Slack','messenger',['token'],[tool('profile','read','Token identity'),tool('search','read','Search messages (user token search:read)'),tool('send','send','Send channel message (chat:write)',True)],'https://api.slack.com/apps','Use personal app OAuth token. Search requires a user token.'),
  entry('discord','Discord Bot','messenger',['token'],[tool('profile','read','Bot identity'),tool('messages','read','Read channel_id messages'),tool('send','send','Send to channel_id',True)],'https://discord.com/developers/applications','Invite bot with minimum channel permissions; message content may require privileged intent.'),
- entry('instagram','Instagram Professional','social',['token','account_id','client_id','client_secret','redirect_uri'],[tool('profile','read','Professional account profile'),tool('media','read','Recent account media')],'https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login','Business/Creator account required. Instagram Login does not require a Facebook Page. Personal accounts unsupported. Meta app, exact HTTPS redirect and approved permissions/app review for other users required.',dict(authorize='https://www.instagram.com/oauth/authorize',token='https://api.instagram.com/oauth/access_token',scope='instagram_business_basic')),
+ entry('instagram','Instagram Professional','social',['token','account_id','client_id','client_secret','redirect_uri'],[tool('profile','read','Professional account profile'),tool('media','read','Recent account media')],'https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login','Business/Creator account required. Instagram Login does not require a Facebook Page. Personal accounts unsupported. Meta app, exact HTTPS redirect and approved permissions/app review for other users required.',dict(authorize='https://www.instagram.com/oauth/authorize',token_url='https://api.instagram.com/oauth/access_token',scope='instagram_business_basic')),
  entry('facebook','Facebook Pages','social',['token','account_id'],[tool('profile','read','Page profile'),tool('posts','read','Page posts'),tool('publish','publish','Publish page text post',True)],'https://developers.facebook.com/docs/pages-api','Page access token and pages_read_engagement / pages_manage_posts as applicable. User-owned Pages, not arbitrary personal profiles.'),
- entry('gmail','Gmail','mail',['token','refresh_token','client_id','client_secret','redirect_uri'],[tool('profile','read','Mailbox profile'),tool('search','read','Search messages by Gmail query'),tool('message','read','Read message_id'),tool('draft','draft','Create raw RFC822 base64url draft',True)],'https://developers.google.com/workspace/gmail/api/auth/scopes','gmail.readonly for reading; gmail.compose for drafts. Restricted scopes may require verification.',dict(authorize='https://accounts.google.com/o/oauth2/v2/auth',token='https://oauth2.googleapis.com/token',scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose')),
- entry('microsoft','Microsoft Outlook','mail',['token','refresh_token','client_id','client_secret','redirect_uri'],[tool('profile','read','Microsoft user'),tool('search','read','Search mailbox'),tool('draft','draft','Create draft message',True)],'https://learn.microsoft.com/en-us/graph/auth-register-app-v2','Register a Web app in Entra ID. Delegated User.Read Mail.Read Mail.ReadWrite offline_access. This adapter creates drafts, never sends mail.',dict(authorize='https://login.microsoftonline.com/common/oauth2/v2.0/authorize',token='https://login.microsoftonline.com/common/oauth2/v2.0/token',scope='offline_access User.Read Mail.Read Mail.ReadWrite')),
+ entry('gmail','Gmail','mail',['token','refresh_token','client_id','client_secret','redirect_uri'],[tool('profile','read','Mailbox profile'),tool('search','read','Search messages by Gmail query'),tool('message','read','Read message_id'),tool('draft','draft','Create raw RFC822 base64url draft',True)],'https://developers.google.com/workspace/gmail/api/auth/scopes','gmail.readonly for reading; gmail.compose for drafts. Restricted scopes may require verification.',dict(authorize='https://accounts.google.com/o/oauth2/v2/auth',token_url='https://oauth2.googleapis.com/token',scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose')),
+ entry('microsoft','Microsoft Outlook','mail',['token','refresh_token','client_id','client_secret','redirect_uri'],[tool('profile','read','Microsoft user'),tool('search','read','Search mailbox'),tool('draft','draft','Create draft message',True)],'https://learn.microsoft.com/en-us/graph/auth-register-app-v2','Register a Web app in Entra ID. Delegated User.Read Mail.Read Mail.ReadWrite offline_access. This adapter creates drafts, never sends mail.',dict(authorize='https://login.microsoftonline.com/common/oauth2/v2.0/authorize',token_url='https://login.microsoftonline.com/common/oauth2/v2.0/token',scope='offline_access User.Read Mail.Read Mail.ReadWrite')),
  entry('imap','IMAP + SMTP','mail',['host','username','password','smtp_host'],[tool('search','read','Search INBOX by IMAP criterion'),tool('message','read','Read uid from INBOX'),tool('send','send','Send plain text email via SMTP',True)],'https://docs.python.org/3/library/imaplib.html','TLS only: IMAP 993 and SMTP 465. Use app-specific password if required. Search defaults to UNSEEN; no flags are changed.'),
  entry('http','HTTP JSON API','app',['base_url','token'],[tool('get','read','GET relative path'),tool('post','write','POST relative path JSON',True)],'https://developer.mozilla.org/en-US/docs/Web/HTTP','Explicit HTTPS origin. Relative paths only; redirects disabled. Do not point at metadata/admin services.'),
  entry('mcp','MCP HTTP server','app',['base_url','token'],[tool('list','read','List MCP tools'),tool('call','write','Call remote MCP tool',True)],'https://modelcontextprotocol.io/specification/2025-06-18/basic/transports','JSON HTTP transport only. All remote calls need confirmation because remote tool annotations are untrusted; SSE-only/stdio servers unsupported.'),
+ entry('composio','Composio · приложения для всех моделей','app',['token','toolkits'],[tool('list','read','Список инструментов подключённых приложений (cursor для следующей страницы)'),tool('read','read','Проверенное чтение Gmail/Slack/GitHub/Google Calendar; tool_slug из списка'),tool('connect','connect','Вход в выбранное приложение через Composio',True),tool('call','write','Вызов любого разрешённого инструмента приложения с подтверждением',True)],'https://dashboard.composio.dev','Нужен project API key Composio и явный список приложений, например gmail,slack,github. API-ключ не подключает аккаунты автоматически: после проверки выберите connect и войдите. Статус connected подтверждает API Composio, а не авторизацию всех приложений. Codex/Claude получают проверенные инструменты чтения; остальные модели используют результат через черновик. Внешний облачный сервис; его тарифы действуют отдельно. Instant-покупки и удалённый workbench отключены.'),
 ]
 BY_ID={r['id']:r for r in CATALOG}
 
@@ -51,6 +52,7 @@ EXAMPLES={
  'imap':{'search':{'query':'UNSEEN'},'message':{'uid':'123'},'send':{'to':'name@example.com','subject':'Subject','text':'Hello'}},
  'http':{'get':{'path':'/items','params':{}},'post':{'path':'/items','body':{'name':'example'}}},
  'mcp':{'list':{},'call':{'name':'TOOL_NAME','arguments':{}}},
+ 'composio':{'list':{'cursor':''},'read':{'tool_slug':'GMAIL_FETCH_EMAILS','arguments':{'max_results':'10'}},'connect':{'toolkit':'gmail'},'call':{'tool_slug':'GMAIL_CREATE_EMAIL_DRAFT','arguments':{}}},
 }
 for provider in CATALOG:
     for spec in provider['tools']:
@@ -65,7 +67,7 @@ def folder(request):return root(request)
 
 def public(row):
     if row.get('expires_at',float('inf'))<time.time():row=dict(row,status='expired')
-    return {k:v for k,v in row.items() if k not in {'credentials','approvals','oauth'}} | {'credential_fields':sorted(row.get('credentials',{})),'credentials':{k:'••••••••' for k in row.get('credentials',{})}}
+    return {k:v for k,v in row.items() if k not in {'credentials','approvals','oauth','composio'}} | {'credential_fields':sorted(row.get('credentials',{})),'credentials':{k:'••••••••' for k in row.get('credentials',{})}}
 
 
 def get_row(state,ident):
@@ -97,7 +99,7 @@ async def http(method,url,**kwargs):
                 if len(data)>2_000_000:raise HTTPException(502,'Ответ API слишком большой')
     try:result=json.loads(data)
     except ValueError:raise HTTPException(502,'API вернул не JSON') from None
-    if isinstance(result,dict) and (result.get('ok') is False or 'error' in result):raise HTTPException(502,'API отклонил запрос; проверьте токен и scopes')
+    if isinstance(result,dict) and (result.get('ok') is False or result.get('error')):raise HTTPException(502,'API отклонил запрос; проверьте токен и scopes')
     return result
 
 
@@ -118,6 +120,9 @@ async def adapter(row,name,args):
         except HTTPException:raise
         except Exception:raise HTTPException(502,'Mail TLS/auth запрос не выполнен') from None
     if p=='mcp':return sanitize(await mcp_adapter(row,name,args),c)
+    if p=='composio':
+        from .chat_composio import adapter as composio_adapter
+        return sanitize(await composio_adapter(row,name,args),c)
     if p=='telegram':
         operation={'profile':'getMe','chat':'getChat','send':'sendMessage'}[name]
         url='https://api.telegram.org/bot'+token+'/'+operation;headers={}
@@ -230,6 +235,9 @@ def install(app,owner_setup):
             for k in ('host','smtp_host'):
                 if not re.fullmatch(r'[A-Za-z0-9.-]+',credentials[k]) or credentials[k].lower() in {'localhost','169.254.169.254'}:raise HTTPException(422,'Некорректный mail host')
         row=dict(id=uuid.uuid4().hex,provider=provider,label=text(body.get('label',spec['name']),100),credentials=credentials,permissions=permissions,status='configured' if credentials.get('token') or provider in {'http','mcp','imap'} else 'setup_required',created_at=time.time())
+        if provider=='composio':
+            from .chat_composio import prepare
+            prepare(row,folder(request).name)
         with locked(folder(request)) as state:state.setdefault('connectors',{})[row['id']]=row
         audit(folder(request),'connector_created',connector=row['id'],provider=provider)
         return public(row)
@@ -249,7 +257,20 @@ def install(app,owner_setup):
     async def health(request:Request,ident:str):
         auth(request)
         with locked(folder(request)) as state:row=json.loads(json.dumps(get_row(state,ident)))
-        name='search' if row['provider']=='imap' else 'get' if row['provider']=='http' else 'list' if row['provider']=='mcp' else 'profile'
+        if row['provider']=='composio' and not row.get('composio',{}).get('session_id'):
+            from .chat_composio import create_session,session_id
+            try:
+                result=await create_session(row)
+                row['composio']['session_id']=result.get('session_id','')
+                session_id(row)
+            except (HTTPException,httpx.HTTPError,KeyError,ValueError):
+                audit(folder(request),'composio_session_failed',connector=ident)
+                with locked(folder(request)) as state:
+                    current=get_row(state,ident);current.update(status='error',last_checked_at=time.time(),error='Composio не подключён: проверьте project API key, приложения и разрешения Session management / Session tool execution');return public(current)
+            with locked(folder(request)) as state:
+                get_row(state,ident)['composio']=row['composio']
+            audit(folder(request),'composio_session_created',connector=ident)
+        name='search' if row['provider']=='imap' else 'get' if row['provider']=='http' else 'list' if row['provider'] in {'mcp','composio'} else 'profile'
         error=None
         try:await adapter(row,name,{'path':'/'})
         except (HTTPException,httpx.HTTPError,KeyError,ValueError):error='Проверка API не прошла: проверьте токен, scopes и доступность'
@@ -279,7 +300,7 @@ def install(app,owner_setup):
             if flow.get('expires',0)<time.time() or not secrets.compare_digest(flow.get('state',''),hashlib.sha256(nonce.encode()).hexdigest()):raise HTTPException(403,'Недействительный OAuth state')
             del row['oauth'];row=json.loads(json.dumps(row))
         c=row['credentials'];spec=BY_ID[row['provider']]['oauth']
-        try:tokens=await http('POST',spec['token'],data=dict(client_id=c['client_id'],client_secret=c['client_secret'],redirect_uri=c['redirect_uri'],grant_type='authorization_code',code=text(body.get('code',''),6000),**({'code_verifier':flow['verifier']} if row['provider']!='instagram' else {})))
+        try:tokens=await http('POST',spec['token_url'],data=dict(client_id=c['client_id'],client_secret=c['client_secret'],redirect_uri=c['redirect_uri'],grant_type='authorization_code',code=text(body.get('code',''),6000),**({'code_verifier':flow['verifier']} if row['provider']!='instagram' else {})))
         except httpx.HTTPError:raise HTTPException(502,'OAuth token endpoint недоступен') from None
         if not isinstance(tokens.get('access_token'),str):raise HTTPException(502,'OAuth не вернул access_token')
         with locked(folder(request)) as state:
@@ -292,9 +313,15 @@ def install(app,owner_setup):
     async def refresh(request:Request,ident:str):
         auth(request)
         with locked(folder(request)) as state:row=json.loads(json.dumps(get_row(state,ident)))
+        if row['provider']=='composio':
+            with locked(folder(request)) as state:
+                row=get_row(state,ident);row.get('composio',{}).pop('session_id',None)
+                row.update(status='configured',error=None);result=public(row)
+            audit(folder(request),'composio_session_reset',connector=ident)
+            return result
         c=row['credentials'];spec=BY_ID[row['provider']].get('oauth')
         if not spec or not c.get('refresh_token'):raise HTTPException(422,'Нет OAuth refresh token; переподключите аккаунт')
-        try:tokens=await http('POST',spec['token'],data={k:c[k] for k in ('client_id','client_secret','refresh_token')}|{'grant_type':'refresh_token'})
+        try:tokens=await http('POST',spec['token_url'],data={k:c[k] for k in ('client_id','client_secret','refresh_token')}|{'grant_type':'refresh_token'})
         except (httpx.HTTPError,KeyError):raise HTTPException(502,'Обновить токен не удалось') from None
         if not isinstance(tokens.get('access_token'),str):raise HTTPException(502,'Не получен access_token')
         with locked(folder(request)) as state:

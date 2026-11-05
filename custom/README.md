@@ -207,3 +207,10 @@ The optional AI Hub Telegram adapter also requires explicit `hub_db`, `telegram_
 Recovery codes expire in 10 minutes, are stored hashed, and are one-use. Requests have IP/email rate limits and the same response for known and unknown accounts. Successful recovery replaces the password, revokes native session stamps, clears transient MFA challenges, and preserves the MFA secret. SMTP uses verified implicit TLS. For managed/OAuth-only accounts, use the identity provider's recovery flow.
 
 Phone JPEG references now accept up to 16 MiB / 64 MiPixels / 16384 pixels per side. Original bytes and EXIF orientation survive sidebar upload; the model still receives a bounded 768 px FLUX or 1024 px SDXL copy. These input limits do not promise improved face likeness or unlimited output size.
+
+
+## Composio and Claude in Chrome
+
+Composio is available under **Plugins and skills → Services** for all supported models through the shared connector layer. Supply your own project API key and explicit toolkit list, run the health check, then use `connect` to authorize each app. No accounts, keys or subscriptions are bundled. Native Codex/Claude can execute an explicit read-only tool allowlist through MCP; general actions require exact single-use confirmation in the service UI. Text-only API models use the existing result-to-draft workflow. See [COMPOSIO.md](COMPOSIO.md). Instant purchases, remote Workbench and proxy execution are disabled.
+
+The **Claude in Chrome** setup card provides official installation links and honest readiness checks. On the same desktop machine as Claude Code, run `python3 custom/install-claude-chrome-host.py`, install the official Chrome extension and sign in, then run `claude-chrome` and verify `/chrome`. This does not install the browser extension, authorize sites or connect a remote computer automatically. It is a Claude-specific integration; other models do not inherit Claude browser access. The installer preserves existing launchers and browser profiles.
