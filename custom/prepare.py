@@ -18,7 +18,7 @@ def prepare():
   subprocess.run(['docker','cp',container+':/app/build/.',str(source)],check=True)
  finally:subprocess.run(['docker','rm',container],check=True,stdout=subprocess.DEVNULL)
  subprocess.run([sys.executable,str(ROOT/'deploy/patch-webui-queue.py'),str(source),str(runtime/'overrides')],check=True)
- for name in ('harness-ui.js','media-ui.js','local-modules-ui.js'):shutil.copyfile(ROOT/'deploy'/name,runtime/'overrides/ai-hub'/name)
+ for name in ('harness-ui.js','media-ui.js','local-modules-ui.js','parallel-ui.js'):shutil.copyfile(ROOT/'deploy'/name,runtime/'overrides/ai-hub'/name)
  shutil.copytree(ROOT/'deploy/assets',runtime/'overrides/ai-hub/assets',dirs_exist_ok=True)
  print('Prepared pinned overrides. Private settings: custom/runtime/private.env (0600). No service started.')
 if __name__=='__main__':prepare()

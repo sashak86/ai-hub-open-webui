@@ -325,7 +325,7 @@ async def prepare(request,body,desc):
                 desc['addons']['applied'].append(ident)
     mem=active.get('claude-mem')
     if mem and mem.get('endpoint'):
-        scope=scope_id(request,body['chat_id'],settings(request,body['chat_id']).get('project_id',''))
+        scope=scope_id(request,body['chat_id'],'' if desc.get('parallel') else settings(request,body['chat_id']).get('project_id',''))
         try:
             async with httpx.AsyncClient(timeout=4,trust_env=False,follow_redirects=False) as client:
                 response=await client.get(mem['endpoint']+'/api/observations',params={'project':scope,'limit':8},headers=headers(mem));response.raise_for_status()

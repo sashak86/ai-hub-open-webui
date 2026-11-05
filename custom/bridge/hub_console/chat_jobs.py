@@ -164,8 +164,11 @@ def install(app,owner_setup,validate_live):
 
     @app.post('/v1/jobs')
     async def create(request:Request):
+        return await submit(request,await request.json())
+
+    async def submit(request:Request,body,parallel=False):
         received_at=time.time()
-        owner_setup(request);who=owner_id(request);body=await request.json()
+        owner_setup(request);who=owner_id(request)
         if not isinstance(body,dict):raise HTTPException(422,'Expected object')
         for key in ('chat_id','message_id'):
             if not isinstance(body.get(key),str) or not body[key] or len(body[key])>200:raise HTTPException(422,'Invalid conversation identity')
@@ -175,7 +178,7 @@ def install(app,owner_setup,validate_live):
         model=body.get('model','')
         if not isinstance(model,str) or len(model)>200:raise HTTPException(422,'Invalid model')
         from .chat_harness import settings as harness_settings
-        policy=harness_settings(request,body['chat_id'])
+        policy={'enabled':False} if parallel else harness_settings(request,body['chat_id'])
         if model not in {row['id'] for row in await asyncio.to_thread(model_catalog,request) if row.get('available') or (policy['enabled'] and policy['mode']=='auto')}:
             raise HTTPException(422,'Model is not available')
         root=directory(request);own(root,request);mkdir(root/'index',request);mkdir(root/who,request)
@@ -217,6 +220,15 @@ def install(app,owner_setup,validate_live):
             clean.append({'role':message['role'],'content':message['content']})
         folder=chat/f'job-{ident}'
         staging=chat/f'.pending-{ident}-{secrets.token_hex(4)}';mkdir(staging,request);mkdir(staging/'files',request)
+        if parallel:
+            mkdir(staging/'workspace',request)
+            rules=(cwd/'AGENTS.md')
+            inherited=rules.read_text()[:96000] if rules.is_file() and not rules.is_symlink() else ''
+            guidance=('Это независимый запрос: ты проектный исполнитель, не дирижёр. Не продолжай чужую CLI-сессию или незавершённую задачу. '
+                'Текущий проект и история основного чата не переданы. Для параллельной правки существующего репозитория сначала проверь его правила, TASKS/HANDOFF и используй собственный git worktree и ветку. '
+                'Не редактируй занятый checkout и не перезапускай чужие службы. Эта папка отдельная, но не является песочницей доступа ко всем путям.\n\n')
+            for name in ('AGENTS.md','CLAUDE.md'):
+                path=staging/'workspace'/name;path.write_text(guidance+inherited);path.chmod(0o600);own(path,request)
         files=[]
         for i,(name,mime,data) in enumerate(decoded):
             safe=re.sub(r'[^A-Za-z0-9._-]','_',Path(name).name)[:100] or 'file'
@@ -225,13 +237,14 @@ def install(app,owner_setup,validate_live):
             with staged_path.open('xb') as f:os.chmod(staged_path,0o600);f.write(data)
             own(staged_path,request);files.append({'name':name,'mime':mime,'path':str(path)})
         desc=dict(id=ident,model=model,text=text,cwd=str(cwd),created_at=time.time(),attachments=files,history=clean,history_supplied='history' in body)
+        if parallel:desc.update(parallel=True,parallel_request_id=body['message_id'],cwd=str(folder/'workspace'))
         from .chat_extensions import snapshot,digest
         from .chat_connectors import native_extension
         desc['extensions']=snapshot(request)
         desc['extensions_hash']=digest(desc['extensions'])
         from .chat_harness import prepare,root as harness_root
         desc['connection_root']=str(harness_root(request))
-        await prepare(request,body,desc,[])
+        if not parallel:await prepare(request,body,desc,[])
         from .chat_addons import prepare as prepare_addons
         await prepare_addons(request,body,desc)
         desc['extensions']+=native_extension(request)
@@ -245,6 +258,58 @@ def install(app,owner_setup,validate_live):
         atomic(index,{'owner':who,'chat':chatname,'folder':folder.name})
         start_worker(request,chat)
         return summary(folder)
+
+    @app.post('/v1/parallel')
+    async def parallel_create(request:Request):
+        owner_setup(request);owner_id(request);body=await request.json()
+        if not isinstance(body,dict) or not re.fullmatch('[a-f0-9]{32}',str(body.get('request_id',''))):
+            raise HTTPException(422,'Нужен идентификатор независимого запроса')
+        ident=body['request_id']
+        import fcntl
+        base=directory(request)/owner_id(request);mkdir(base,request)
+        lock=(base/('parallel-'+ident+'.lock')).open('a');os.chmod(lock.name,0o600);own(Path(lock.name),request)
+        try:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise HTTPException(409,'Запрос уже принимается. Проверьте запуск через несколько секунд.')
+            return (await submit(request,{'chat_id':'parallel:'+ident,'message_id':ident,
+                'model':body.get('model',''),'text':body.get('text',''),'history':[]},parallel=True))|{'request_id':ident}
+        finally:lock.close()
+
+    @app.get('/v1/parallel')
+    async def parallel_list(request:Request):
+        owner_setup(request);who=owner_id(request)
+        rows=[]
+        for path in (directory(request)/who).glob('*/job-*/request.json'):
+            desc=load(path,{})
+            if desc.get('parallel') is not True:continue
+            state=summary(path.parent)
+            rows.append({key:state.get(key) for key in ('id','model','status','description','created_at','started_at','finished_at','duration_seconds','queue_seconds')}|{'text':desc.get('text','')[:300],'request_id':desc.get('parallel_request_id')})
+        rows.sort(key=lambda row:(row.get('status') in TERMINAL,-(row.get('created_at') or 0)))
+        return {'jobs':rows[:50],'concurrency':2,'models':[row for row in await asyncio.to_thread(model_catalog,request) if row.get('available')]}
+
+    def parallel_folder(request,ident):
+        folder=scoped_job(request,ident)
+        if load(folder/'request.json',{}).get('parallel') is not True:raise HTTPException(404,'Job not found')
+        return folder
+
+    @app.get('/v1/parallel/{ident}')
+    async def parallel_read(request:Request,ident:str):
+        owner_setup(request);folder=parallel_folder(request,ident)
+        desc=load(folder/'request.json',{});path=folder/'events.jsonl';parts=[]
+        if path.exists():
+            with path.open('rb') as stream:
+                stream.seek(max(0,path.stat().st_size-65536));tail=stream.read().decode(errors='replace')
+            for line in tail.splitlines():
+                try:event=json.loads(line)
+                except ValueError:continue
+                if event.get('type')=='text':parts.append(event.get('text',''))
+        return summary(folder)|{'text':desc.get('text',''),'output':''.join(parts)[-16000:]}
+
+    @app.post('/v1/parallel/{ident}/cancel')
+    async def parallel_cancel(request:Request,ident:str):
+        owner_setup(request);folder=parallel_folder(request,ident)
+        (folder/'cancel').touch(mode=0o600);own(folder/'cancel',request)
+        return {'ok':True}
 
     @app.get('/v1/jobs/{ident}')
     async def read(request:Request,ident:str):

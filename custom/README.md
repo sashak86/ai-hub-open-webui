@@ -222,3 +222,9 @@ The **Claude in Chrome** setup card provides official installation links and hon
 VoiceStudio and OpenMuse can run as separate local applications opened from the Workbench sidebar. [LOCAL-MODULES.md](LOCAL-MODULES.md) describes explicit owner mapping, TLS/network configuration and the optional pinned installers. No application, model, voice, service key or user data is silently enabled or bundled.
 
 The tested VoiceStudio profile is local Russian Piper CPU TTS with playback and WAV export; cloning, ASR and neural dubbing are not installed. OpenMuse uses a local Ollama model with one server-persisted main conversation, tasks and files; cloud Rich Threads/search/browser/computer services are disabled. Each upstream application's own license remains in its deployment directory; VoiceStudio and its separate integration files are AGPL-3.0-only.
+
+## Independent parallel requests (0.10.0)
+
+The compact two-arrow button beside Harness launches a separate request while the main chat is working. Choose a model, follow each request and stop it independently. Results survive reload; slow/lost submission acknowledgements reuse a request UUID instead of starting duplicates. The existing global cap remains two concurrent workers.
+
+Only the new text is context: current history, project and unfinished files are not copied. Provider tools remain available; editing an existing repository requires a separate worktree. See [PARALLEL-REQUESTS.md](PARALLEL-REQUESTS.md).

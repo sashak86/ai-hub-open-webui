@@ -103,6 +103,11 @@ def create_app():
     install_password_reset(app,settings)
     from .webui_local_modules import install as install_local_modules
     install_local_modules(app,settings)
+    @app.get('/ai-hub/parallel-ui.js')
+    async def parallel_ui_asset():
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(__file__).resolve().parents[2]/'deploy/parallel-ui.js',media_type='text/javascript',headers={'Cache-Control':'no-store'})
+
     @app.get('/ai-hub/local-modules-ui.js')
     async def local_modules_asset():
         from fastapi.responses import FileResponse
@@ -145,6 +150,7 @@ def create_app():
         if user.get('role') not in {'admin','user'}:raise HTTPException(403,'Account access denied')
         if not own_job_read and user.get('role')!='admin' and user.get('id') not in allowed:raise HTTPException(403,'Workbench is limited to the administrator and explicitly allowed user IDs')
         if path=='limits':target='/v1/jobs/limits'
+        elif re.fullmatch(r'parallel(?:/[a-f0-9]{32}(?:/cancel)?)?',path) and request.method in {'GET','POST'}:target='/v1/'+path
         elif re.fullmatch(r'jobs/[a-f0-9]{32}(?:/artifacts/[0-9]{1,2}/export)?',path) and request.method=='GET':target='/v1/'+path
         elif re.fullmatch(r'media(?:/[a-f0-9]{32}(?:/(?:file|cancel|animate))?)?',path):target='/v1/'+path
         elif path=='extensions' or path.startswith('extensions/'):target='/v1/chat-extensions'+path[len('extensions'):]
