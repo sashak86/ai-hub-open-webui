@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "date": "2026-11-05",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -17,7 +17,9 @@
       "config.py",
       "agent_bridge.py",
       "standalone.py",
-      "webui_password_reset.py"
+      "webui_password_reset.py",
+      "webui_local_modules.py",
+      "module_security.py"
     ],
     "portability_changes": [
       "Use current user home instead of private server paths.",
@@ -33,7 +35,8 @@
       "Opt-in real FLUX.2 klein4B Q4 generation/instruction-reference editing; Qwen3-4B Q4 text encoder, Flux2VAE, pinned SHA256 installer. No 20B Qwen-Image-Edit installation. SDXL portable default retained until explicit model opt-in.",
       "Optional native password recovery uses an explicit private configuration path, explicit native WebUI database and optional Hub Telegram paths; no server credentials included.",
       "Accept high-resolution phone references with bounded model upload; retain source JPEG bytes instead of expanding to PNG in sidebar.",
-      "Force identity encoding for HTML navigation before injecting the password-recovery script."
+      "Force identity encoding for HTML navigation before injecting the password-recovery script.",
+      "Optional separate-origin local VoiceStudio/OpenMuse modules with explicit owners, loopback upstreams, TLS gateways and app-bound native WebUI SSO; no model/voice/data/key distribution."
     ],
     "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
     "interactive_connectors_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
@@ -48,10 +51,20 @@
       "resource_cap": "8GiB RAM,4CPU cores on tested8vCPU host"
     },
     "media_photo_recovery_revision": "14f23f9",
-    "composio_chrome_revision": "ffb3639"
+    "composio_chrome_revision": "ffb3639",
+    "local_modules": {
+      "gateway_revision": "16e2448",
+      "source_offer_revision": "83744d3",
+      "voicestudio_upstream": "fc154e767227f46f2297621b854bed8685e27247",
+      "openmuse_upstream": "a4944f4c471d3dc93b8bfc060b5da309b5216ab2",
+      "default": "disabled",
+      "voice_profile": "Russian Piper CPU TTS; ASR/clone/dub unconfigured",
+      "openmuse_profile": "local Ollama, one server main conversation, tasks/files/PGlite; cloud/search/browser/computer off",
+      "integration_revision": "c7084f5"
+    }
   },
   "validation": {
-    "offline_tests": 92,
+    "offline_tests": 108,
     "pinned_preparation": "passed against cached digest-pinned build; reviewed queue chunk hashes and additive branded HTML shell checked; no service started",
     "isolated_process_smoke": [
       "startup",
@@ -62,7 +75,7 @@
       "backup_zip",
       "native_model_catalog"
     ],
-    "secret_scan": "Changed bridge, deploy, tests and installer scanned with gitleaks; no credentials. Manifest digest findings reviewed separately.",
+    "secret_scan": "Changed bridge/deploy/tests scanned separately with gitleaks: no findings. VERSION digest-only findings reviewed; no runtime/private files included.",
     "production_modified_by_publication": false,
     "previous_integrated_backend_tests": 1029,
     "previous_integrated_backend_skipped": 1,
@@ -90,7 +103,13 @@
     "password_recovery_live": "Backend executor: configured native sign-in recovered UI checked on320/390; one-use/session/MFA/isolation tests synthetic; no real password changed.",
     "composio_chrome_backend_tests": 42,
     "composio_browser": "Installed and candidate Chromium320/390: API-key wizard, explicit read default, exact confirmation, validated user-click OAuth link; no real cloud account/API key or outgoing actions.",
-    "claude_chrome_readiness": "Native messaging host installed/tested; installed Chromium320/390 wizard and owner auth tested. Browser extension absent, live connection not verified. No browser profile changed."
+    "claude_chrome_readiness": "Native messaging host installed/tested; installed Chromium320/390 wizard and owner auth tested. Browser extension absent, live connection not verified. No browser profile changed.",
+    "local_module_live_acceptance": {
+      "mobile": "320/390 cards; real app launch, owner isolation, logout, no JS errors",
+      "voicestudio": "Russian UI TTS, real playback and browser WAV download 216756 bytes; TLS events WebSocket",
+      "openmuse": "TLS SSE local answer2, first event0.097s total20.373s; native task/PDF/history restart verified",
+      "scope": "Installed machine only; clean-host VoiceStudio bootstrap not universally tested"
+    }
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -111,13 +130,15 @@
     "Instagram supports professional profile/media reads only; no consumer account, DM/publishing or long-lived token refresh adapter.",
     "Remote MCP supports JSON Streamable HTTP responses, not SSE-only or stdio endpoints.",
     "Composio requires a personal project API key and per-app authorization. General calls need exact single-use UI approval; CLI read allowlist only. API text models use result-to-draft. No bundled keys/accounts, automatic instant purchases or remote workbench.",
-    "Claude in Chrome is Claude-only and needs the official Chrome extension, sign-in and same-machine Claude Code/native host. Setup/status never claims an unverified live connection."
+    "Claude in Chrome is Claude-only and needs the official Chrome extension, sign-in and same-machine Claude Code/native host. Setup/status never claims an unverified live connection.",
+    "Optional VoiceStudio is a bounded CPU TTS deployment, not installed ASR/cloning/dubbing. OpenMuse local profile has one server conversation and disables cloud/search/browser/computer. Explicit owner, TLS, model/service configuration required."
   ],
   "sha256": {
     "ARCHITECTURE.md": "e7d909256dc7303151324629ee6d2b20c490d22d7e2434ce561c44ee9164f523",
     "COMPOSIO.md": "e3d0dfa2748fb4eb3124f5985d64690fe723b046782f02a4d3f960bb2643713c",
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
-    "README.md": "8a2fde72025667ce0f01893fb9f38e099d8ae28515f1af561c33eb92b05360f6",
+    "LOCAL-MODULES.md": "d9968f1d8097b53b60b7b466c839fecf62e22cd55e3e7ab79fa61f62cb251323",
+    "README.md": "3300e14836c1a333e2587005b6a56965b7ca137a37a2233e2619419c53307dd2",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_addon_runtime.py": "bb24f46300b696affbf08dbed140a2f3a5046b8c992d0f4ae265f4f1385c252b",
@@ -137,8 +158,10 @@
     "bridge/hub_console/chat_worker.py": "16ff9c7d35fb5b44eadd4f9a66d6e969d41c8b5234bc595928f787f9efa666d1",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
-    "bridge/hub_console/standalone.py": "ecda9d91cfb2f60f6d6ea5b5a33ed4c788dc303a3c0260b734c7a4b76a9f4a8f",
+    "bridge/hub_console/module_security.py": "40028fc970b1ce6849a35e74ab48dee588234bc66e3b1600b7266c6ccc5b030f",
+    "bridge/hub_console/standalone.py": "0984870dbb62521da49ea6eaa3911ce4dbcd8fe1778c945f2916c23755c04842",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
+    "bridge/hub_console/webui_local_modules.py": "38686a49a78a638490136fb7b22d064bd6359757963a2c8075b87f86844a5faf",
     "bridge/hub_console/webui_password_reset.py": "ec9f81f4003f0b087113fd18ae1191f216ab7aed01b54895c45c0c3fb0202160",
     "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/artifacts-ui.js": "d649cddc731a162cbe9e0d6ed2991dddca81cb59e33cca07e03b5529b9ea7101",
@@ -147,20 +170,36 @@
     "deploy/chat_pipe.py": "aff39a0ba1527c2d2f165526391dfce8966caf15c594bead1add25b8e54e1f44",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
     "deploy/extensions-ui.js": "8468674ceee621dd29ad025a9c566f3deff4e9950cfd96c78ec8fa82bcc373d0",
-    "deploy/harness-ui.js": "a75b4e19841d9786c0a1a6b09dc40ba8e8979b87526316ed80e3345cd55508a3",
+    "deploy/harness-ui.js": "92e6d14301cc56e7be362a4223e8d35e69587b5b0153e7e0fb26171e5bd74786",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
+    "deploy/local-modules-ui.js": "434c3922c559333d239f37f517f47321d066760abbd5ab3f82362e38943abf20",
     "deploy/media-ui.js": "8b6349be9b61b127a5bb16034ab4353187121b1a936ede8e9b54309813d03e5c",
+    "deploy/openmuse/README.md": "cae951d10ce4eb8b899cfbcaaed24309f87b8d73a1e65c7b0881248fd55d525e",
+    "deploy/openmuse/UPSTREAM-LICENSE": "399a9cccf1b228c9e8ad348ef66a0a5802d438d46735d0d068390925aee5ee36",
+    "deploy/openmuse/configure.py": "0b521d5060ce016666a68357a59841e7cb696088c76daed7e9a3d1ef06fbba1e",
+    "deploy/openmuse/install.py": "22c1c62232c4311627fb800a97827bd435f0b0504ba2b0689d4273d7602f64fd",
+    "deploy/openmuse/local.patch": "f4d4b854e6736cb125d49849d2b78f22647b0cf7b9dbc4d99881827b7a13aa7f",
+    "deploy/openmuse/openmuse-local.service": "ec41115362d4c3c8a348519c6934b2d625a3a8f43c3536b8a8bb86daa8e53ebb",
     "deploy/password-reset.js": "2320b572b20af646f299b0ebb63f45a2ca188bafd1bc2f54b3b6a445fd6519a5",
     "deploy/patch-webui-queue.py": "e590def2bb3a7afd6f2827ca14a22e9d09e830433465bc3a170e6cffaa0a0a01",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
+    "deploy/voicestudio/LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "deploy/voicestudio/README.md": "37b3f1a385f2e600e0da3ede1dd6a571daadebab31e8612dc59cc12e42b0f1b2",
+    "deploy/voicestudio/environment.example": "210d740b352351945c8d37990d18892a8b0f61fb5d0b3d9bab913184de599331",
+    "deploy/voicestudio/hub-voicestudio.service": "ca805483b7b480754b6017a29ec82b840a3a8925992f22e134a9c03b47c7c823",
+    "deploy/voicestudio/install.py": "3504d73d999b475c1383610d0085459c1b8772814008db8e1223b6a149515d6e",
+    "deploy/voicestudio/local_entry.py": "28e8b86aa42c9c865a320f436747f976c4bec91972979f84f616769a80829ca4",
+    "deploy/voicestudio/profile-bootstrap.js": "5e833827c496c87c9aeda220514ba364f448b898968154bfd2cd71dd51d59ff9",
+    "deploy/voicestudio/requirements-local.lock": "6337d20247b4943e6c59bb080740d099cfa301b328409e621609b96e43835d74",
+    "deploy/voicestudio/upstream.json": "e81284e547d8145864a364cb4e2634c38df06822d41d33e5a17eab74382dac41",
     "install-claude-chrome-host.py": "094a6a3901361cf99979db4c93e23a0f80813bfbb4049e36910af5944c0e047b",
     "install-flux-klein.py": "3de1522c033d148128ad31db0bb34b864d91bb972af6ae102fbac025de8525cb",
     "models/flux-klein-4b.json": "c7b8327dae5c94dcbc98d9ad4e3657f029b4a3f108c39f7db4b9f6f937fa6732",
-    "prepare.py": "595d70bf12f7d1bcc99f91a8aa59e5820389f2c7beca0482e5db45d5baea6312",
+    "prepare.py": "177ecec52c7896a80a5952ef92e17d90c936013fa290b2dac03e07579a3aba45",
     "requirements.txt": "b56d02c995ab52bb9c817a8d94805676b579b0cadbf84a1e728e1b042627ea23",
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "tests/conftest.py": "47ea159af55acdfa165723a9164bdd8032a9fed3dd48e5fd269a381a2fb205c3",
+    "tests/conftest.py": "d273328377675c90dabbf142637ef7ba5305e080c0e24b505d8a2b7a89b71bf6",
     "tests/test_addons.py": "99830282121578fffa1268c2588b7b063d0a0ef702ded64d22fad9f3f7a71c27",
     "tests/test_artifacts.py": "d317c18a7294f50d8fa5b2fa5835e992b90d24199253c65585b2fccbb546ce19",
     "tests/test_chrome.py": "bb710401f5703fdf539a96e19abb2db645ee81cde03e8370e1504e7ae5394e56",
@@ -169,9 +208,11 @@
     "tests/test_flux_klein.py": "e75c306d4800abe0ceedf2db3731248cb0ba53a92702fb2d5afbc2e24319e8c0",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
     "tests/test_image_pipe.py": "0243c7155c0d7ad29b90a3e8e39681a493bb77773973eed95ad5e0a8831b301b",
+    "tests/test_local_modules.py": "40a0ba38c676039151ca72ca1c3d2642ab0e8d1c426541372ba93e9cd578cbc8",
     "tests/test_media_edit.py": "be4942c932cfaffb68041ef4be749a75f8ae318457694563620b1146d917bae7",
     "tests/test_password_reset.py": "a9384aa3c08596b54694b8673e272bab598a76c7f2af5080c996f132d388c5e6",
     "tests/test_standalone.py": "0413acfd645ac46c14fa50054e4a26be11d7dac8af43a9be2761dfb3344966da",
+    "tests/test_voicestudio_local.py": "d40a02f12748c1100beb873adc62a181fb4fe3d4f0f6da3d2e3222dda51c2750",
     "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
   }
 }

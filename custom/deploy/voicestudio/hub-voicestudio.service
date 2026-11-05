@@ -1,0 +1,22 @@
+[Unit]
+Description=AI Hub VoiceStudio local CPU module
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/voicestudio-src
+ExecStart=%h/.local/share/voicestudio-venv/bin/python %h/.local/share/voicestudio-local/local_entry.py
+EnvironmentFile=%h/.config/voicestudio-local/environment
+Restart=on-failure
+RestartSec=5
+CPUQuota=100%
+MemoryHigh=1000M
+MemoryMax=1200M
+TasksMax=128
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

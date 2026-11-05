@@ -1,0 +1,29 @@
+{
+  "repository": "https://github.com/debpalash/VoiceStudio",
+  "revision": "fc154e767227f46f2297621b854bed8685e27247",
+  "version": "0.5.7",
+  "license": "AGPL-3.0-only",
+  "native_host": "127.0.0.1",
+  "native_port": 8771,
+  "gateway_port": 8473,
+  "engine": "sherpa-onnx",
+  "status": "installed_cpu_profile",
+  "model_url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ru_RU-irina-medium.tar.bz2",
+  "model_archive_sha256": "1fc0f54e5e084fe287c07909f2f6e0ba6d857864cf800e3ab80286a4e8233008",
+  "model_license": "Model card: dataset license Unknown; local installation only, weights not redistributed",
+  "unit": "hub-voicestudio.service",
+  "user_service": true,
+  "features": [
+    "text_to_speech_ru",
+    "audio_playback",
+    "wav_download",
+    "projects",
+    "history"
+  ],
+  "unconfigured_features": [
+    "voice_cloning",
+    "voice_design",
+    "asr",
+    "neural_dubbing"
+  ]
+}

@@ -6,6 +6,8 @@ This branch starts from **Open WebUI v0.12.4**, commit `33c1978d5bad52a31df75ea5
 
 ## Features
 
+- Optional separate-origin local VoiceStudio/OpenMuse modules with owner-only SSO, isolated browser storage and protected HTTP/WebSocket/SSE/upload gateways. Modules are disabled by default; see [LOCAL-MODULES.md](LOCAL-MODULES.md).
+
 - Native Codex/Claude Code tasks with durable queue, streaming progress, a separate final result, UTC timestamps and task duration, files, cancellation, and stable message IDs.
 - Interactive tables, line/bar/pie charts, quizzes and dashboards with a fullscreen viewer and JSON/CSV exports; provider HTML/JavaScript never executes.
 - Personal Telegram, Slack, Discord, Instagram Professional, Facebook Pages, Gmail, Outlook, IMAP/SMTP, HTTP and MCP connections. Accounts require your own credentials and API permissions; a catalog entry is not a connected account.
@@ -214,3 +216,9 @@ Phone JPEG references now accept up to 16 MiB / 64 MiPixels / 16384 pixels per s
 Composio is available under **Plugins and skills → Services** for all supported models through the shared connector layer. Supply your own project API key and explicit toolkit list, run the health check, then use `connect` to authorize each app. No accounts, keys or subscriptions are bundled. Native Codex/Claude can execute an explicit read-only tool allowlist through MCP; general actions require exact single-use confirmation in the service UI. Text-only API models use the existing result-to-draft workflow. See [COMPOSIO.md](COMPOSIO.md). Instant purchases, remote Workbench and proxy execution are disabled.
 
 The **Claude in Chrome** setup card provides official installation links and honest readiness checks. On the same desktop machine as Claude Code, run `python3 custom/install-claude-chrome-host.py`, install the official Chrome extension and sign in, then run `claude-chrome` and verify `/chrome`. This does not install the browser extension, authorize sites or connect a remote computer automatically. It is a Claude-specific integration; other models do not inherit Claude browser access. The installer preserves existing launchers and browser profiles.
+
+## Optional local applications (0.9.0)
+
+VoiceStudio and OpenMuse can run as separate local applications opened from the Workbench sidebar. [LOCAL-MODULES.md](LOCAL-MODULES.md) describes explicit owner mapping, TLS/network configuration and the optional pinned installers. No application, model, voice, service key or user data is silently enabled or bundled.
+
+The tested VoiceStudio profile is local Russian Piper CPU TTS with playback and WAV export; cloning, ASR and neural dubbing are not installed. OpenMuse uses a local Ollama model with one server-persisted main conversation, tasks and files; cloud Rich Threads/search/browser/computer services are disabled. Each upstream application's own license remains in its deployment directory; VoiceStudio and its separate integration files are AGPL-3.0-only.

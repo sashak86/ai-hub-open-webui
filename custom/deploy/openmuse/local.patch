@@ -1,0 +1,342 @@
+diff --git a/apps/mobile/src/api.ts b/apps/mobile/src/api.ts
+index ab831d2..d0fdd7b 100644
+--- a/apps/mobile/src/api.ts
++++ b/apps/mobile/src/api.ts
+@@ -3,7 +3,8 @@ import { readApiPayload } from "./api-response";
+ 
+ export const API_URL = (
+   process.env.EXPO_PUBLIC_API_URL ||
+-  (Platform.OS === "android" ? "http://10.0.2.2:8787" : "http://localhost:8787")
++  (Platform.OS === "web" ? globalThis.location?.origin || "" :
++    Platform.OS === "android" ? "http://10.0.2.2:8787" : "http://localhost:8787")
+ ).replace(/\/$/, "");
+ 
+ export class MuseApi {
+diff --git a/apps/server/src/agent.ts b/apps/server/src/agent.ts
+index 4a5a758..a50c8e0 100644
+--- a/apps/server/src/agent.ts
++++ b/apps/server/src/agent.ts
+@@ -19,7 +19,7 @@ export function agentConfigured(config: Config) {
+       ? Boolean(config.agentUrl)
+       : Boolean(
+           config.model &&
+-            (process.env.OPENAI_API_KEY ||
++            (process.env.LOCAL_OLLAMA_MODEL || process.env.OPENAI_API_KEY ||
+               process.env.ANTHROPIC_API_KEY ||
+               process.env.GOOGLE_API_KEY),
+         ))
+@@ -29,7 +29,7 @@ export function makeRuntime(
+   config: Config,
+   service: AgentService,
+   auth: Auth,
+-  intelligence: CopilotKitIntelligence,
++  intelligence?: CopilotKitIntelligence,
+ ) {
+   // Built on first use, then shared so live mode reuses one TypeSafe client across requests.
+   let jevAdapter: JevAdapter | undefined;
+@@ -55,16 +55,16 @@ export function makeRuntime(
+               sharedJevAdapter(),
+             ),
+   });
+-  const runtime = new CopilotRuntime({
++  const options = {
+     agents,
+-    intelligence,
+-    // The shared CopilotKit sink carries this tag onto existing PostHog events.
+-    telemetryProperties: { accessibility_title: "OpenMuse" },
+-    identifyUser: async (request) => ({
++    telemetryProperties: { accessibility_title: "OpenMuse local" },
++    identifyUser: async (request: Request) => ({
+       id: await auth.owner(request.headers.get("authorization") ?? undefined),
+       name: "OpenMuse user",
+     }),
+-    generateThreadNames: false,
+-  });
++  };
++  const runtime = intelligence
++    ? new CopilotRuntime({ ...options, intelligence, generateThreadNames: false })
++    : new CopilotRuntime(options);
+   return createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" });
+ }
+diff --git a/apps/server/src/app.ts b/apps/server/src/app.ts
+index bff91dd..5b9f556 100644
+--- a/apps/server/src/app.ts
++++ b/apps/server/src/app.ts
+@@ -1,5 +1,6 @@
+ import "./config.ts";
+-import { randomUUID } from "node:crypto";
++import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
++import { serveStatic } from "@hono/node-server/serve-static";
+ import { MessageSchema } from "@ag-ui/core";
+ import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+ import { Hono } from "hono";
+@@ -48,9 +49,23 @@ export async function createApp(
+   const browser = new BrowserService(db, config, auth, files);
+   const computer = new ComputerService(db, config, options.docker);
+   const agent = new AgentService(db, config, workspace, files, actions, browser, computer);
+-  const intelligence = new CopilotKitIntelligence({ apiKey: config.intelligenceApiKey });
++  const intelligence = config.intelligenceApiKey
++    ? new CopilotKitIntelligence({ apiKey: config.intelligenceApiKey })
++    : undefined;
+   const runtime = makeRuntime(config, agent, auth, intelligence);
+   const app = new Hono<{ Variables: { owner: string } }>();
++  // Protected single-owner deployment. Only the AI Hub owner gateway knows this key.
++  if (process.env.LOCAL_ONLY === "true") {
++    if (!config.accessKey || config.accessKey.length < 32) throw new Error("Local gateway key required");
++    const expected = createHash("sha256").update(config.accessKey).digest();
++    app.use("*", async (c, next) => {
++      if (c.req.path === "/api/health") return next();
++      const supplied = c.req.header("x-openmuse-service-key") ?? "";
++      const digest = createHash("sha256").update(supplied).digest();
++      if (!supplied || !timingSafeEqual(expected, digest)) return c.json({ error: "Owner gateway required" }, 401);
++      await next();
++    });
++  }
+   const origins = new Set([...config.allowedOrigins, new URL(config.publicUrl).origin]);
+   app.use("*", async (c, next) => {
+     const origin = c.req.header("origin");
+@@ -114,7 +129,7 @@ export async function createApp(
+     if (++loginAttempts > 30)
+       throw new AppError("Too many sign-in attempts. Try again in a minute.", 429);
+     const body = z.object({ accessKey: z.string().optional() }).parse(await c.req.json());
+-    const session = await auth.session(body.accessKey);
++    const session = await auth.session(process.env.LOCAL_ONLY === "true" ? config.accessKey : body.accessKey);
+     await workspace.ensureSample("local-user", actions);
+     await agent.ensure("local-user");
+     if (config.mode === "sample") await agent.refreshIdeas("local-user");
+@@ -224,7 +239,7 @@ export async function createApp(
+     const main = await db.get<{ threadId: string }>(owner, "conversation-settings", "main");
+     if (!main) throw new AppError("Main conversation could not be loaded", 503);
+     try {
+-      await intelligence.getOrCreateThread({
++      await intelligence?.getOrCreateThread({
+         threadId: main.threadId,
+         userId: owner,
+         agentId: "default",
+@@ -356,8 +371,12 @@ export async function createApp(
+     );
+     return new Response(body, { status: response.status, headers: response.headers });
+   });
+-  app.get("/", (c) =>
+-    c.json({ name: "OpenMuse", app: "http://localhost:8081", health: "/api/health" }),
+-  );
++  if (process.env.LOCAL_ONLY === "true") {
++    app.all("/api/*", (c) => c.json({ error: "API route not found" }, 404));
++    app.get("*", serveStatic({ root: "apps/mobile/dist/web" }));
++    app.get("*", serveStatic({ path: "apps/mobile/dist/web/index.html" }));
++  } else {
++    app.get("/", (c) => c.json({ name: "OpenMuse", app: "http://localhost:8081", health: "/api/health" }));
++  }
+   return { app, auth, files, actions, workspace, agent, computer };
+ }
+diff --git a/apps/server/src/auth.ts b/apps/server/src/auth.ts
+index 0c63c92..6db5157 100644
+--- a/apps/server/src/auth.ts
++++ b/apps/server/src/auth.ts
+@@ -29,6 +29,9 @@ export class Auth {
+     return { token, mode: this.config.mode };
+   }
+   async owner(authorization?: string) {
++    // LOCAL_ONLY is served exclusively through the constant-time service-key guard
++    // installed before every API/static route. The gateway itself is owner-only.
++    if (process.env.LOCAL_ONLY === "true") return "local-user";
+     if (!authorization?.startsWith("Bearer ")) throw new AppError("Sign in to OpenMuse", 401);
+     const id = digest(authorization.slice(7)).toString("hex");
+     const session = await this.db.get<{ owner: string; expiresAt: number }>(
+diff --git a/apps/server/src/config.ts b/apps/server/src/config.ts
+index 25797a9..7ff4f89 100644
+--- a/apps/server/src/config.ts
++++ b/apps/server/src/config.ts
+@@ -79,7 +79,8 @@ export function required(name: string, message: string, value = process.env[name
+ 
+ export function assertApiDeploymentConfig(
+   config: Config,
+-): asserts config is Config & { intelligenceApiKey: string } {
++): void {
++  if (process.env.LOCAL_ONLY === "true") return;
+   required(
+     "CPK_INTELLIGENCE_API_KEY",
+     intelligenceKeyRequiredMessage,
+@@ -149,7 +150,9 @@ export function readConfig(): Config {
+     agentBackend: backend,
+     agentUrl: process.env.AGENT_URL,
+     agentToken: process.env.AGENT_TOKEN,
+-    intelligenceApiKey: required("CPK_INTELLIGENCE_API_KEY", intelligenceKeyRequiredMessage),
++    intelligenceApiKey: process.env.LOCAL_ONLY === "true"
++      ? process.env.CPK_INTELLIGENCE_API_KEY?.trim() || undefined
++      : required("CPK_INTELLIGENCE_API_KEY", intelligenceKeyRequiredMessage),
+     googleClientId: process.env.GOOGLE_CLIENT_ID,
+     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+     googleRedirectUri: `${publicUrl}/api/google/callback`,
+diff --git a/apps/server/src/engine/local-ollama.ts b/apps/server/src/engine/local-ollama.ts
+new file mode 100644
+index 0000000..b7a64b5
+--- /dev/null
++++ b/apps/server/src/engine/local-ollama.ts
+@@ -0,0 +1,80 @@
++/** Fixed local transport, preserving the resident model's context and keep-alive.
++ * Uses native Ollama chat because its OpenAI compatibility endpoint does not
++ * document keep_alive. No external API key, no model pull, no num_ctx mutation.
++ */
++export const localOllamaFetch: typeof fetch = async (input, init) => {
++  const request = new Request(input, init);
++  const url = new URL(request.url);
++  if (url.origin !== "http://127.0.0.1:11434" || url.pathname !== "/v1/chat/completions")
++    throw new Error("Local Ollama adapter only permits resident chat completions");
++  const body = await request.json();
++  if (body.model !== process.env.LOCAL_OLLAMA_MODEL) throw new Error("Only the configured resident model is allowed");
++  const messages = (body.messages ?? []).map((message: any) => {
++    let content = message.content ?? "";
++    if (Array.isArray(content)) {
++      if (content.some((part: any) => part.type !== "text" && part.type !== "input_text"))
++        throw new Error("This local text model does not accept image/audio input");
++      content = content.map((part: any) => part.text ?? "").join("\n");
++    }
++    const tool_calls = message.tool_calls?.map((call: any) => ({
++      ...call,
++      function: { ...call.function, arguments: typeof call.function.arguments === "string" ? JSON.parse(call.function.arguments) : call.function.arguments },
++    }));
++    return { role: message.role, content, ...(tool_calls ? { tool_calls } : {}), ...(message.name ? { tool_name: message.name } : {}) };
++  });
++  const response = await fetch("http://127.0.0.1:11434/api/chat", {
++    method: "POST", signal: request.signal,
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({ model: body.model, messages, tools: body.tools,
++      stream: Boolean(body.stream), think: false, keep_alive: -1,
++      options: { num_predict: Math.min(body.max_tokens ?? body.max_completion_tokens ?? 1536, 4096),
++        ...(typeof body.temperature === "number" ? { temperature: body.temperature } : {}) } }),
++  });
++  if (!response.ok) return new Response(JSON.stringify({ error: { message: "Local model request failed", type: "local_model_error" } }), { status: response.status, headers: { "Content-Type": "application/json" } });
++  const id = "chatcmpl-local-" + crypto.randomUUID();
++  const created = Math.floor(Date.now() / 1000);
++  const calls = (items: any[]) => items.map((call, index) => ({
++    index, id: `call_${id}_${index}`, type: "function",
++    function: { name: call.function.name, arguments: JSON.stringify(call.function.arguments ?? {}) },
++  }));
++  if (!body.stream) {
++    const value = await response.json();
++    return new Response(JSON.stringify({ id, object: "chat.completion", created, model: body.model,
++      choices: [{ index: 0, message: { role: "assistant", content: value.message?.content ?? "", ...(value.message?.tool_calls?.length ? { tool_calls: calls(value.message.tool_calls) } : {}) }, finish_reason: value.message?.tool_calls?.length ? "tool_calls" : "stop" }],
++      usage: { prompt_tokens: value.prompt_eval_count ?? 0, completion_tokens: value.eval_count ?? 0, total_tokens: (value.prompt_eval_count ?? 0) + (value.eval_count ?? 0) } }), { headers: { "Content-Type": "application/json" } });
++  }
++  const encoder = new TextEncoder();
++  const reader = response.body!.getReader();
++  let buffered = "", hasTools = false;
++  const stream = new ReadableStream<Uint8Array>({
++    async start(controller) {
++      const send = (value: unknown) => controller.enqueue(encoder.encode("data: " + JSON.stringify(value) + "\n\n"));
++      const row = (line: string) => {
++        if (!line.trim()) return;
++        const value = JSON.parse(line);
++        if (value.error) throw new Error("Local model stream failed");
++        const delta: Record<string, unknown> = {};
++        if (value.message?.content) delta.content = value.message.content;
++        if (value.message?.tool_calls?.length) { hasTools = true; delta.tool_calls = calls(value.message.tool_calls); }
++        send({ id, object: "chat.completion.chunk", created, model: body.model,
++          choices: [{ index: 0, delta, finish_reason: value.done ? (hasTools ? "tool_calls" : "stop") : null }],
++          ...(value.done ? { usage: { prompt_tokens: value.prompt_eval_count ?? 0, completion_tokens: value.eval_count ?? 0, total_tokens: (value.prompt_eval_count ?? 0) + (value.eval_count ?? 0) } } : {}) });
++      };
++      try {
++        const decoder = new TextDecoder();
++        for (;;) {
++          const result = await reader.read();
++          if (result.done) break;
++          buffered += decoder.decode(result.value, { stream: true });
++          const lines = buffered.split("\n"); buffered = lines.pop() ?? "";
++          for (const line of lines) row(line);
++        }
++        if (buffered.trim()) row(buffered);
++        controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close();
++      } catch (error) { controller.error(error); }
++      finally { reader.releaseLock(); }
++    },
++    cancel(reason) { return reader.cancel(reason); },
++  });
++  return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" } });
++};
+diff --git a/apps/server/src/engine/tanstack-agent.ts b/apps/server/src/engine/tanstack-agent.ts
+index 9ebf2bf..68de2e3 100644
+--- a/apps/server/src/engine/tanstack-agent.ts
++++ b/apps/server/src/engine/tanstack-agent.ts
+@@ -15,10 +15,11 @@ import {
+ } from "@tanstack/ai";
+ import { type AnthropicChatModel, anthropicText } from "@tanstack/ai-anthropic";
+ import { type GeminiTextModel, geminiText } from "@tanstack/ai-gemini";
+-import { type OpenAIChatModel, openaiChatCompletions, openaiText } from "@tanstack/ai-openai";
++import { type OpenAIChatModel, createOpenaiChatCompletions, openaiChatCompletions, openaiText } from "@tanstack/ai-openai";
+ import { map, mergeMap, type Observable } from "rxjs";
+ import { z } from "zod";
+ import { MODEL_MAX_RETRIES } from "../config.ts";
++import { localOllamaFetch } from "./local-ollama.ts";
+ 
+ // Same "provider/model" strings, env vars and base URL formats as the AI SDK resolver in
+ // @copilotkit/runtime. Each provider SDK retries transient failures up to MODEL_MAX_RETRIES times.
+@@ -31,6 +32,12 @@ function adapter(spec: string) {
+   const id = model.trim();
+   switch (provider.toLowerCase()) {
+     case "openai":
++      if (process.env.LOCAL_ONLY === "true" && process.env.LOCAL_OLLAMA_MODEL) {
++        // SDK requires a client label; this is not a cloud API key and is never forwarded.
++        return createOpenaiChatCompletions(id as OpenAIChatModel, "local-ollama", {
++          baseURL: "http://127.0.0.1:11434/v1", fetch: localOllamaFetch, maxRetries: 0,
++        });
++      }
+       // OpenAI-compatible endpoints that do not implement the Responses API
+       // tool loop (e.g. DeepSeek) can opt into the Chat Completions wire format.
+       if (process.env.OPENAI_CHAT_COMPLETIONS === "true")
+diff --git a/apps/server/src/workspace.ts b/apps/server/src/workspace.ts
+index 1bbe4ae..4e88cbf 100644
+--- a/apps/server/src/workspace.ts
++++ b/apps/server/src/workspace.ts
+@@ -364,7 +364,7 @@ export class WorkspaceService {
+         provider: this.config.agentBackend === "sample" ? "sample" : "model",
+         configured: agentConfigured(this.config),
+         openbotConfigured: false,
+-        richThreads: true,
++        richThreads: Boolean(this.config.intelligenceApiKey),
+       },
+     };
+   }
+diff --git a/tests/local-ollama.test.ts b/tests/local-ollama.test.ts
+new file mode 100644
+index 0000000..03ef306
+--- /dev/null
++++ b/tests/local-ollama.test.ts
+@@ -0,0 +1,37 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import { localOllamaFetch } from '../apps/server/src/engine/local-ollama.ts';
++
++test('local transport preserves keep-alive/context, converts streamed tools, and never forwards a cloud credential', async () => {
++  process.env.LOCAL_OLLAMA_MODEL = 'resident-test';
++  const original = globalThis.fetch;
++  let called = 0;
++  globalThis.fetch = async (url, init) => {
++    called++;
++    assert.equal(String(url), 'http://127.0.0.1:11434/api/chat');
++    assert.equal(new Headers(init?.headers).has('authorization'), false);
++    const native = JSON.parse(String(init?.body));
++    assert.equal(native.keep_alive, -1); assert.equal(native.think, false);
++    assert.equal('num_ctx' in native.options, false);
++    assert.deepEqual(native.messages[1].tool_calls[0].function.arguments, { query: 'hello' });
++    return new Response([
++      { message: { content: 'Ready' }, done: false },
++      { message: { tool_calls: [{ function: { name: 'list_files', arguments: {} } }] }, done: false },
++      { message: {}, done: true, prompt_eval_count: 12, eval_count: 3 },
++    ].map(v => JSON.stringify(v)+'\n').join(''));
++  };
++  try {
++    const response = await localOllamaFetch('http://127.0.0.1:11434/v1/chat/completions', { method: 'POST', headers: { authorization: 'Bearer never-forward', 'content-type': 'application/json' }, body: JSON.stringify({ model: 'resident-test', stream: true, messages: [{role:'user',content:'hello'},{role:'assistant',content:'',tool_calls:[{function:{name:'query',arguments:'{"query":"hello"}'}}]}] }) });
++    const stream = await response.text();
++    assert.match(stream, /Ready/); assert.match(stream, /list_files/); assert.match(stream, /tool_calls/); assert.match(stream, /\[DONE\]/); assert.equal(called, 1);
++  } finally { globalThis.fetch = original; }
++});
++test('local transport refuses other hosts, endpoints, models and nontext input before sending requests', async () => {
++  process.env.LOCAL_OLLAMA_MODEL = 'resident-test';
++  for (const [url, body] of [
++    ['https://example.com/v1/chat/completions', {model:'resident-test'}],
++    ['http://127.0.0.1:11434/api/pull', {model:'resident-test'}],
++    ['http://127.0.0.1:11434/v1/chat/completions', {model:'other'}],
++    ['http://127.0.0.1:11434/v1/chat/completions', {model:'resident-test',messages:[{role:'user',content:[{type:'image_url',image_url:{url:'https://example.com'}}]}]}],
++  ] as const) await assert.rejects(localOllamaFetch(url, {method:'POST',body:JSON.stringify(body)}));
++});

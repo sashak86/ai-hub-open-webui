@@ -82,6 +82,7 @@ def create_app():
     @contextlib.asynccontextmanager
     async def lifespan(app):
         app.state.http=httpx.AsyncClient(timeout=httpx.Timeout(None,connect=15),trust_env=False)
+        await app.state.local_modules.start(app.state.http)
         await chat_workspace.start_scheduler(app)
         recovery=asyncio.create_task(chat_jobs.recover(app))
         from .chat_addons import monitor as monitor_addons
@@ -92,12 +93,20 @@ def create_app():
             with contextlib.suppress(asyncio.CancelledError):await addon_monitor
             recovery.cancel()
             with contextlib.suppress(asyncio.CancelledError):await recovery
-            await chat_workspace.stop_scheduler(app);await app.state.http.aclose()
+            await chat_workspace.stop_scheduler(app)
+            await app.state.local_modules.stop()
+            await app.state.http.aclose()
     app=FastAPI(title='Sasha AI Workbench · Open WebUI',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
     app.add_middleware(RequestBodyLimit)
     app.state.settings=settings;app.state.chat_jobs_root=root/'chat-jobs'
     from .webui_password_reset import install as install_password_reset
     install_password_reset(app,settings)
+    from .webui_local_modules import install as install_local_modules
+    install_local_modules(app,settings)
+    @app.get('/ai-hub/local-modules-ui.js')
+    async def local_modules_asset():
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(__file__).resolve().parents[2]/'deploy/local-modules-ui.js',media_type='text/javascript',headers={'Cache-Control':'no-cache'})
     config=root/'bridge-config.json'
     comfy=os.environ.get('SASHA_WORKBENCH_COMFY_URL','').rstrip('/')
     image_model=os.environ.get('SASHA_WORKBENCH_IMAGE_MODEL','sdxl-lightning')

@@ -21,3 +21,8 @@ def pytest_pyfunc_call(pyfuncitem):
 def private_recovery_is_not_read_by_offline_tests(tmp_path,monkeypatch):
     from hub_console import webui_password_reset
     monkeypatch.setattr(webui_password_reset,'CONFIG_PATH',tmp_path/'unconfigured-recovery.json')
+
+@pytest.fixture(autouse=True)
+def private_modules_are_not_read_by_offline_tests(tmp_path,monkeypatch):
+    from hub_console import webui_local_modules
+    monkeypatch.setattr(webui_local_modules,'CONFIG_PATH',tmp_path/'unconfigured-modules.json')
