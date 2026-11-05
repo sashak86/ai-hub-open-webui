@@ -30,7 +30,7 @@ PROVIDERS = {
     'codex': dict(auth_methods=['account','api_key'], auth_url='https://chatgpt.com', name='ChatGPT / Codex'),
     'claude': dict(auth_methods=['account','api_key'], auth_url='https://claude.ai', name='Claude Code'),
     'openai': dict(auth_methods=['api_key'], auth_url='https://platform.openai.com/api-keys', base_url='https://api.openai.com/v1', name='OpenAI API'),
-    'deepseek': dict(auth_methods=['api_key'], auth_url='https://platform.deepseek.com/api_keys', base_url='https://api.deepseek.com', name='DeepSeek API'),
+    'deepseek': dict(auth_methods=['api_key'], auth_url='https://platform.deepseek.com/api_keys', base_url='https://api.deepseek.com', name='DeepSeek · официальный API', description='Личный API-ключ; Flash/Pro и отдельные Chat/DeepThink режимы. Текстовый чат со streaming; файлы и исполнение инструментов API-worker пока не поддерживает.'),
     'openrouter': dict(auth_methods=['api_key'], auth_url='https://openrouter.ai/settings/keys', base_url='https://openrouter.ai/api/v1', name='OpenRouter'),
     'compatible': dict(auth_methods=['api_key'], name='OpenAI-compatible API'),
     'ollama': dict(auth_methods=['local'], name='Ollama'),
@@ -141,10 +141,11 @@ def connections(request):
     for provider,meta in PROVIDERS.items():
         entry=credentials.get(provider,{})
         connected=bool(entry.get('api_key'))
+        if provider=='deepseek':connected=connected and bool(entry.get('verified_at'))
         if provider=='codex':connected=connected or bool(load(home/'.codex/auth.json',{}).get('tokens')) or (root(request)/'codex/auth.json').exists()
         elif provider=='claude':connected=connected or bool(load(home/'.claude/.credentials.json',{}).get('claudeAiOauth'))
         elif provider=='ollama':connected=True # Model list only includes actually loaded models.
-        result.append({**meta,'provider':provider,'connected':connected,'auth_type':entry.get('auth_type'),'api_key':'••••' if entry.get('api_key') else '', 'base_url':entry.get('base_url',meta.get('base_url','')),'models':entry.get('models',[])})
+        result.append({**meta,'provider':provider,'connected':connected,'auth_type':entry.get('auth_type'),'api_key':'••••' if entry.get('api_key') else '', 'base_url':entry.get('base_url',meta.get('base_url','')),'models':entry.get('models',[]),'verified_at':entry.get('verified_at')})
     return result
 
 
@@ -154,9 +155,15 @@ def api_models(request):
     out=[]
     for provider,row in load(root(request)/'connections.json',{}).items():
         if not row.get('api_key') or provider in ('codex','claude'):continue
-        for model in row.get('models',[]):
+        if provider=='deepseek':
+            if not row.get('verified_at'):continue
+            from .chat_deepseek import variants
+            choices=variants(row)
+        else:choices=[{'id':model,'name':model+' · '+PROVIDERS[provider]['name']} for model in row.get('models',[])]
+        for choice in choices:
+            model=choice['id']
             native_id='ai_hub.owner-'+request.headers['x-webui-user'][:16]+'-'+hashlib.sha256((provider+'/'+model).encode()).hexdigest()[:16]
-            out.append(dict(id='api/'+provider+'/'+model,native_id=native_id,name=model+' · '+PROVIDERS[provider]['name'],provider='api',available=True,connected=True,capabilities={'text':True,'image':False,'tools':False},limits={}))
+            out.append(dict(id='api/'+provider+'/'+model,native_id=native_id,name=choice['name'],provider='api',available=True,connected=True,capabilities={'text':True,'image':False,'tools':False},limits={'context_tokens':choice.get('context_tokens')} if choice.get('context_tokens') else {}))
     return out
 
 
@@ -231,7 +238,9 @@ async def connect(request,provider,body):
     key=text(key,8000)
     if not key or any(c in key for c in ('\n','\r')):raise HTTPException(422,'Введите API-ключ')
     base_url=_safe_url(body.get('base_url') or entry.get('base_url') or PROVIDERS[provider].get('base_url','https://api.openai.com/v1' if provider=='codex' else 'https://api.anthropic.com'))
-    listed=[]
+    if provider=='deepseek' and not request.app.state.settings.testing and base_url not in {'https://api.deepseek.com','https://api.deepseek.com/v1'}:
+        raise HTTPException(422,'Для официального DeepSeek используйте https://api.deepseek.com. Свой шлюз подключается как OpenAI-compatible API.')
+    listed=[];metadata={};balance=[]
     if action=='test':
         try:
             headers={'Authorization':'Bearer '+key}
@@ -240,11 +249,27 @@ async def connect(request,provider,body):
                 response=await client.get(base_url+'/models' if provider!='claude' else base_url+'/v1/models',headers=headers)
                 response.raise_for_status();data=response.json()
             listed=[v['id'] for v in data.get('data',[]) if isinstance(v,dict) and isinstance(v.get('id'),str) and re.fullmatch(r'[A-Za-z0-9_./:-]{1,180}',v['id'])][:300]
+            if provider=='deepseek':
+                from .chat_deepseek import normalize_models,balance_rows,balance_endpoint
+                normalized=normalize_models(data);listed=[r['id'] for r in normalized];metadata={r['id']:r for r in normalized}
+                if not listed:return dict(ok=False,status='no_supported_models',provider=provider,instructions='Ключ принят, но API не вернул актуальные модели DeepSeek. Проверьте доступ в аккаунте.')
+                try:
+                    async with httpx.AsyncClient(timeout=8,trust_env=False,follow_redirects=False) as client:
+                        response=await client.get(balance_endpoint(base_url),headers=headers);response.raise_for_status();balance=balance_rows(response.json())
+                except (httpx.HTTPError,ValueError,KeyError):pass
         except (httpx.HTTPError,ValueError,KeyError):return dict(ok=False,status='connection_failed',provider=provider,instructions='Проверьте ключ, URL API, доступ аккаунта и сетевое соединение. Секрет сохранён только при успешной проверке или действии «Сохранить».')
     entry=dict(api_key=key,base_url=base_url,auth_type='api_key',models=listed or entry.get('models',[]),updated_at=time.time())
+    if provider=='deepseek':
+        entry.update(verified_at=time.time() if action=='test' else None,model_metadata=metadata if action=='test' else {},models=listed if action=='test' else [])
+        from .chat_jobs import own
+        atomic(folder/'deepseek-balance.json',dict(connection_at=entry['updated_at'],attempted_at=time.time(),rows=balance));own(folder/'deepseek-balance.json',request)
     all_connections[provider]=entry;atomic(path,all_connections)
     from .chat_jobs import own
     own(path,request);audit(folder,'connection_'+action,provider=provider)
+    if provider=='deepseek':
+        from .chat_deepseek import variants
+        choices=variants(entry)
+        return dict(ok=True,status='connected' if action=='test' else 'saved',provider=provider,models=[r['id'] for r in choices],model_details={r['id']:r['name'] for r in choices},balance=balance,api_key='••••',message='DeepSeek подключён: выберите Chat или DeepThink в списке моделей.' if action=='test' else 'Ключ сохранён. Нажмите «Проверить», чтобы загрузить модели и активировать подключение.')
     return dict(ok=True,status='connected' if action=='test' else 'saved',provider=provider,models=entry['models'],api_key='••••')
 
 
@@ -648,6 +673,9 @@ def run_api(desc,events,cancelled):
         from .chat_addons import api_connection
         entry=api_connection(desc)
     if not entry.get('api_key') and provider!='omniroute':raise RuntimeError('auth_required')
+    if provider=='deepseek':
+        from .chat_deepseek import run
+        return run(desc,entry,events,cancelled,model)
     if desc.get('attachments'):raise RuntimeError('attachments_unsupported')
     from .chat_artifacts import INSTRUCTIONS
     messages=list(desc.get('history',[]))+[dict(role='user',content=INSTRUCTIONS+desc['text']+desc.get('harness_prompt','')+desc.get('addon_prompt',''))]

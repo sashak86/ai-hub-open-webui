@@ -1,7 +1,7 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.10.0",
-  "date": "2026-11-05",
+  "version": "0.11.0",
+  "date": "2026-11-06",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
     "tag": "v0.12.4",
@@ -63,7 +63,8 @@
       "openmuse_profile": "local Ollama, one server main conversation, tasks/files/PGlite; cloud/search/browser/computer off",
       "integration_revision": "c7084f5"
     },
-    "parallel_requests_revision": "12d94b0951b7e9e16e74985f37a0021c06aa7dbd"
+    "parallel_requests_revision": "12d94b0951b7e9e16e74985f37a0021c06aa7dbd",
+    "deepseek_revision": "bdf1f58"
   },
   "validation": {
     "offline_tests": 33,
@@ -124,7 +125,8 @@
       "active_main_composer": "320/390, Stop retained, compact one-row controls, no overlap/overflow/JS errors",
       "worker_loop": "two simultaneous detached workers, third queued, independent cancel, separate native IDs",
       "cleanup": "two exact QA jobs/workspaces removed"
-    }
+    },
+    "deepseek": "77 server targeted and 50 portable targeted passed; native DOM320390/JS0; installed isolated mock-stream/owner-registration/queue/reload PASS; no actual provider key or paid completion"
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -155,7 +157,7 @@
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
     "LOCAL-MODULES.md": "d9968f1d8097b53b60b7b466c839fecf62e22cd55e3e7ab79fa61f62cb251323",
     "PARALLEL-REQUESTS.md": "2517f15da30bcdbd0e5afb6d951ea735bf11f99ed04728969fd367be5341193b",
-    "README.md": "bf03c656163762ec98529f826eeae7b157759ddea72baf7657efdf973b08f249",
+    "README.md": "b9c98041d116bac88dca6adf5a11ffa7744bddbaeb7f9c21e473d5a4645a0c63",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_addon_runtime.py": "bb24f46300b696affbf08dbed140a2f3a5046b8c992d0f4ae265f4f1385c252b",
@@ -167,16 +169,16 @@
     "bridge/hub_console/chat_connector_mcp.py": "04e4410f0e3f38e4657970d5ac7b4e1a91985b6ecbc71a1d974e8aa67971323a",
     "bridge/hub_console/chat_connectors.py": "ca779b59988dd0aaa4cbe54003abcfbb5f457cefe5522fb3d152e28146305bdf",
     "bridge/hub_console/chat_extensions.py": "1d3dc53df24733835492a601d512a6145dd3c3b37770db3569e71bda3fe1526f",
-    "bridge/hub_console/chat_harness.py": "3f04f96b292d8405e590979e36f4c38b4dd3702b453c7380fecfae658ac0a29b",
+    "bridge/hub_console/chat_harness.py": "62ef582fddef69864a053a31b413d2feaa900e94f25eab4a56cc51cdb9df83ff",
     "bridge/hub_console/chat_jobs.py": "97947b32fee362164f85f73e2fb432eab29182705c984d911040b4fa979d5e02",
     "bridge/hub_console/chat_media.py": "1ae7d23d114fb789d9dad47883b977d4955f021ca6d8f828b05100c7aef08ab0",
     "bridge/hub_console/chat_providers.py": "e5e19143c9598ee787de42b8c65dbdc0f281719ea3fdea9dc974c02e32935dcf",
-    "bridge/hub_console/chat_quotas.py": "352628166eb764dbe4b422ac6261e4db35c3b22c47fbe00829548b8aaec51bb4",
-    "bridge/hub_console/chat_worker.py": "16ff9c7d35fb5b44eadd4f9a66d6e969d41c8b5234bc595928f787f9efa666d1",
+    "bridge/hub_console/chat_quotas.py": "246400a3673ac57d442079f53d8c08878dc583b60ed30ea87b491d95d0135aa0",
+    "bridge/hub_console/chat_worker.py": "c53407c13f052b9ce03397afa53a8bb45fccc6cba469e4f0eef38c936dfc787a",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
     "bridge/hub_console/module_security.py": "40028fc970b1ce6849a35e74ab48dee588234bc66e3b1600b7266c6ccc5b030f",
-    "bridge/hub_console/standalone.py": "3da8eb77da20ec20fe88f65347bd491bd8dcd27c1dda8863940c508d9c5ff7d8",
+    "bridge/hub_console/standalone.py": "46147c0d267091e644718a2862e69199b9bb271f93978adf7cd47811c98ea812",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
     "bridge/hub_console/webui_local_modules.py": "38686a49a78a638490136fb7b22d064bd6359757963a2c8075b87f86844a5faf",
     "bridge/hub_console/webui_password_reset.py": "ec9f81f4003f0b087113fd18ae1191f216ab7aed01b54895c45c0c3fb0202160",
@@ -184,10 +186,10 @@
     "deploy/artifacts-ui.js": "d649cddc731a162cbe9e0d6ed2991dddca81cb59e33cca07e03b5529b9ea7101",
     "deploy/assets/sasha-avatar.png": "ead39c5919b9e565ffd6e6a1598204cba6b348d13d0fe0ed37d1cb75d4cc3863",
     "deploy/brand-shell.html": "9f3ca5bcfc5a9896cb57e6983dd828e53b0906475a933eac316d05c7fd0c4917",
-    "deploy/chat_pipe.py": "aff39a0ba1527c2d2f165526391dfce8966caf15c594bead1add25b8e54e1f44",
+    "deploy/chat_pipe.py": "eb21e593d751becccd6bb9ae3742d69993b5148b0c353d3a3f146a8c6f7f4d74",
     "deploy/chat_stop_action.py": "b492346fcc35dd86d72d165f26bab47ae6744f134014a4e3205c87943805f633",
     "deploy/extensions-ui.js": "33679002541cc7ec5bb468caebb774cfe2d82e00dd2b1cee969eeb2ded0ebb5f",
-    "deploy/harness-ui.js": "92e6d14301cc56e7be362a4223e8d35e69587b5b0153e7e0fb26171e5bd74786",
+    "deploy/harness-ui.js": "8b68078a463df14e0e87e5a753858b20131ec38e7aeab5347ac6e1a8c82f852b",
     "deploy/install-chat-pipe.py": "5496fe81ead3fd06f80bdbfe1e6b73242060f052c91bfb37fc6311bc738607e9",
     "deploy/local-modules-ui.js": "434c3922c559333d239f37f517f47321d066760abbd5ab3f82362e38943abf20",
     "deploy/media-ui.js": "8b6349be9b61b127a5bb16034ab4353187121b1a936ede8e9b54309813d03e5c",
@@ -197,7 +199,7 @@
     "deploy/openmuse/install.py": "22c1c62232c4311627fb800a97827bd435f0b0504ba2b0689d4273d7602f64fd",
     "deploy/openmuse/local.patch": "f4d4b854e6736cb125d49849d2b78f22647b0cf7b9dbc4d99881827b7a13aa7f",
     "deploy/openmuse/openmuse-local.service": "ec41115362d4c3c8a348519c6934b2d625a3a8f43c3536b8a8bb86daa8e53ebb",
-    "deploy/parallel-ui.js": "c1579a2e11ffd5f9a997dc2890f7e72623a4a4785fc714d60f3ca1f134d874ff",
+    "deploy/parallel-ui.js": "3b120f4fd395b1b77ea0d8454e726f4a2972247b582d9a941f0aada3ebfe5662",
     "deploy/password-reset.js": "2320b572b20af646f299b0ebb63f45a2ca188bafd1bc2f54b3b6a445fd6519a5",
     "deploy/patch-webui-queue.py": "e590def2bb3a7afd6f2827ca14a22e9d09e830433465bc3a170e6cffaa0a0a01",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
@@ -232,6 +234,9 @@
     "tests/test_password_reset.py": "a9384aa3c08596b54694b8673e272bab598a76c7f2af5080c996f132d388c5e6",
     "tests/test_standalone.py": "0413acfd645ac46c14fa50054e4a26be11d7dac8af43a9be2761dfb3344966da",
     "tests/test_voicestudio_local.py": "d40a02f12748c1100beb873adc62a181fb4fe3d4f0f6da3d2e3222dda51c2750",
-    "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2"
+    "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2",
+    "DEEPSEEK.md": "2b5d4fcd671d5548b1efc1cb80230d79aa7c47b5a14065e33719e42c6ae1db61",
+    "tests/test_deepseek.py": "8eda3e60f6056f5a3bd475d1ab9d430eccd541c8f839b9c4db33177ce1c11347",
+    "bridge/hub_console/chat_deepseek.py": "c8b7bc4503c46a87a9014b92d95ff7528d22b977d2ba90c48a55df07f0443919"
   }
 }

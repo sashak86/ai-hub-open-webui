@@ -96,8 +96,8 @@ async def collect_attachments(files, images, user):
         if isinstance(url, str) and not url.startswith('data:'):
             parts = urlsplit(url)
             match = re.fullmatch(r'/api/v1/files/([^/]+)/content', parts.path)
-            trusted_origins = {urlsplit(v.strip()).netloc or v.strip() for v in os.environ.get('HUB_PUBLIC_ORIGINS','127.0.0.1:8088,localhost:8088').split(',')}
-            if match and (not parts.netloc or (parts.scheme in {'http','https'} and parts.netloc in trusted_origins)):
+            trusted_origins = {'192.168.0.29:8446', '127.0.0.1:8446', 'localhost:8446'}
+            if match and (not parts.netloc or (parts.scheme == 'https' and parts.netloc in trusted_origins)):
                 if match[1] not in seen:
                     extra = await collect_attachments([{'id': match[1]}], [], user)
                     for obj in extra:
@@ -120,6 +120,18 @@ async def collect_attachments(files, images, user):
     return attachments
 
 
+def deepseek_reasoning_block(value):
+    """Untrusted provider output, escaped inside an exact owned wrapper."""
+    import html
+    if not isinstance(value,str) or not value:return ''
+    return '<details data-ai-hub-reasoning="deepseek-v1"><summary>Рассуждение DeepSeek</summary>\n<pre>'+html.escape(value[:65536])+'</pre></details>\n\n'
+
+
+def strip_deepseek_reasoning(value):
+    import re
+    return re.sub(r'\A<details data-ai-hub-reasoning="deepseek-v1"><summary>Рассуждение DeepSeek</summary>\n<pre>[^<]*</pre></details>\n\n','',value,count=1)
+
+
 def visible_history(messages):
     """Only selected visible conversation, never system instructions/private reasoning."""
     last_user = max((i for i, m in enumerate(messages) if m.get('role') == 'user'), default=-1)
@@ -132,6 +144,7 @@ def visible_history(messages):
             content = '\n'.join(part.get('text', '') for part in content if part.get('type') == 'text')
         if not isinstance(content, str):
             continue
+        if message.get('role')=='assistant':content=strip_deepseek_reasoning(content)
         total += len(content)
         if total > 200000:
             raise ValueError('Для смены агента история слишком длинная. Создайте новый чат с кратким контекстом.')
@@ -290,7 +303,7 @@ class Pipe:
         if not token:
             raise ValueError('Подключение к агентам не настроено администратором.')
         return httpx.AsyncClient(
-            base_url=os.environ.get('HUB_CHAT_URL', 'http://127.0.0.1:8088'),
+            base_url=os.environ.get('HUB_CHAT_URL', 'https://192.168.0.29:8445'),
             headers={'Authorization': 'Bearer ' + token}, trust_env=False,
             verify=os.environ.get('SSL_CERT_FILE', True),
             timeout=httpx.Timeout(None, connect=15),
@@ -401,7 +414,9 @@ class Pipe:
                             if current and current <= seq and kind not in {'status','done','error'}:
                                 continue
                             seq = max(seq, current)
-                            if kind == 'text':
+                            if kind == 'reasoning':
+                                await emit({'status':'running','description':'DeepSeek · формирует рассуждение','id':job_id})
+                            elif kind == 'text':
                                 progress.append(event.get('text',''))
                                 if event.get('channel')!='final':await emit({'status':'running','description':event.get('text','').strip()[:500] or 'Агент готовит ответ','id':job_id})
                             elif kind == 'final':
@@ -419,7 +434,7 @@ class Pipe:
                                 answer=saved.get('final_text') or final_text
                                 if not answer:
                                     answer=''.join(progress).strip() if state=='completed' else {'cancelled':'Запрос остановлен пользователем. Завершение задачи не подтверждено.','interrupted':'Исполнитель прерван; запрос автоматически не повторялся.'}.get(state,'Агент не завершил запрос. Вывод сохранён; автоматического повтора нет.')
-                                yield answer or 'Агент завершил выполнение без итогового текста. Результат задачи не подтверждён.'
+                                yield deepseek_reasoning_block(saved.get('reasoning_text'))+(answer or 'Агент завершил выполнение без итогового текста. Результат задачи не подтверждён.')
                                 from datetime import timezone,timedelta
                                 zone=timezone(timedelta(hours=3))
                                 def stamp(value):

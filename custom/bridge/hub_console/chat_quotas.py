@@ -90,4 +90,7 @@ async def snapshot(request):
     from .chat_jobs import model_catalog
     models=await asyncio.to_thread(model_catalog,request)
     rows+=billing_rows(home,cached.get('accounts',{}),models)
+    if getattr(request,'headers',{}).get('x-webui-user'):
+        from .chat_deepseek import owner_billing
+        rows+=await owner_billing(request,models)
     return {'providers':rows}

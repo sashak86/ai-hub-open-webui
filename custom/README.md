@@ -6,6 +6,8 @@ This branch starts from **Open WebUI v0.12.4**, commit `33c1978d5bad52a31df75ea5
 
 ## Features
 
+- Official DeepSeek API master with private keys, live model discovery, Chat/DeepThink, owner-only native presets and real-currency balance. See [DEEPSEEK.md](DEEPSEEK.md).
+
 - Optional separate-origin local VoiceStudio/OpenMuse modules with owner-only SSO, isolated browser storage and protected HTTP/WebSocket/SSE/upload gateways. Modules are disabled by default; see [LOCAL-MODULES.md](LOCAL-MODULES.md).
 
 - Native Codex/Claude Code tasks with durable queue, streaming progress, a separate final result, UTC timestamps and task duration, files, cancellation, and stable message IDs.

@@ -36,11 +36,14 @@ class Events:
         self.seq=sum(1 for _ in (folder/'events.jsonl').open()) if (folder/'events.jsonl').exists() else 0
         self.state=load(folder/'state.json', {})
         self.text=''
+        self.reasoning=''
         self.final_candidate=''
         self.last_message=''
         self.side_effects=False
         self.last_checkpoint=0
     def emit(self, event):
+        if event.get('type')=='reasoning':
+            self.reasoning=(self.reasoning+event.get('text',''))[:65536]
         if event.get('type')=='text':
             self.text+=event.get('text','')
             event=dict(event,channel=event.get('channel','commentary'))
@@ -74,6 +77,7 @@ class Events:
         desc=load(self.folder/'request.json',{})
         if artifacts:text+='\n\n[Открыть интерактивное окно](/ai-hub/artifacts/'+desc.get('id','')+')'
         self.state.update(final_text=text,artifacts=artifacts,final_source=source)
+        if self.reasoning:self.state['reasoning_text']=self.reasoning
         atomic(self.folder/'state.json',self.state)
         self.emit({'type':'final','text':text,'artifacts':artifacts,'status':status})
 

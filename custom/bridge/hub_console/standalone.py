@@ -44,7 +44,7 @@ class RequestBodyLimit:
             await response(scope,receive,send)
 
 
-async def register_owner_models(client,authorization,user,uid_hash,provider,model_ids,upstream):
+async def register_owner_models(client,authorization,user,uid_hash,provider,model_ids,upstream,details=None):
     """Native presets inherit Pipe transport, with owner-only read grants.
 
     The real model id is an extra Pipe param and is independently owner-checked
@@ -61,7 +61,7 @@ async def register_owner_models(client,authorization,user,uid_hash,provider,mode
         ident='ai_hub.owner-'+uid_hash[:16]+'-'+hashlib.sha256((provider+'/'+name).encode()).hexdigest()[:16]
         current=await client.get(upstream+'/api/v1/models/model',params={'id':ident},headers=headers,timeout=15)
         exists=current.status_code==200
-        payload={'id':ident,'name':name+' · '+provider,'base_model_id':base,
+        payload={'id':ident,'name':(details or {}).get(name,name+' · '+provider),'base_model_id':base,
             'meta':{'description':'Подключённая API-модель: текстовый чат без shell и файловых инструментов.',
                 'capabilities':{'vision':False,'file_upload':False,'file_context':False,'builtin_tools':False,'web_search':False,'code_interpreter':False}},
             'params':{'custom_params':{'hub_api_model':'api/'+provider+'/'+name}},
@@ -178,7 +178,7 @@ def create_app():
                             # The service admin only creates an owner-read-only preset.
                             login=await app.state.http.post(upstream+'/api/v1/auths/signin',json={'email':os.environ.get('WEBUI_ADMIN_EMAIL',''),'password':os.environ.get('WEBUI_ADMIN_PASSWORD','')},timeout=15)
                             login.raise_for_status();model_authorization='Bearer '+login.json()['token']
-                        data['model_records']=await register_owner_models(app.state.http,model_authorization,user,hashlib.sha256(user['id'].encode()).hexdigest(),provider,data['models'],upstream)
+                        data['model_records']=await register_owner_models(app.state.http,model_authorization,user,hashlib.sha256(user['id'].encode()).hexdigest(),provider,data['models'],upstream,data.get('model_details'))
                     except (httpx.HTTPError,ValueError,KeyError):data['model_registration_warning']='Connection verified, but native private model-list registration failed. Harness routing remains available; check the server Open WebUI administrator connection.'
             return Response(json.dumps(data),media_type='application/json',headers={'Cache-Control':'no-store'})
         response_headers={k:v for k,v in result.headers.items() if k.lower() in {'content-type','content-disposition'}}
