@@ -161,3 +161,19 @@ Attach one PNG/JPEG/WebP and send `/image description` (or `/edit description`) 
 Explicit image generation, reference/mask edits and document creation/editing in the chat open a model dropdown before execution. The available local model is recommended automatically; the circled question mark explains the recommendation and limitations. Canceling starts no provider request. The same confirmation is used by the image editor and simple image animation. Documents use a selected text/CLI model; a text-only API model cannot promise file tools.
 
 Qwen Image Edit, FLUX.1 Kontext dev and LaMa are informational, unavailable entries, not bundled engines. No new weights are installed by this release. SDXL img2img does not preserve face identity or reliably turn a selfie into a complex scene. LaMa is a non-diffusion masked object-removal/background-fill option, not a general prompt-based editor. Exact unselected RGB pixels remain protected by patch compositing in the existing masked editing path. Neural video is still unconfigured; existing MP4 animation is only a camera pan/zoom.
+
+## FLUX.2 klein local generation and instruction editing (0.7.0)
+
+A real low-memory recipe uses the distilled FLUX.2 klein 4B Q4_0 model, Qwen3-4B Q4_K_M **text encoder**, and Flux2 VAE. This is not the 20B Qwen-Image-Edit model. FLUX renders a new scene conditioned on a reference rather than applying SDXL img2img noise to the original selfie. Face identity, exact geography and perfect hands/text are not guaranteed.
+
+Use a recent ComfyUI with Flux2 support and a compatible ComfyUI-GGUF loader. Tested engine: ComfyUI `426f5eea52a7ece1dd599fff4cb6cd1f352ddd24`, GGUF loader `RealRebelAI/ComfyUI-GGUF_KREA-2` at `3b4c20dcfed26d2bdce3cef62c09e92221c47973`. Install pinned public weights outside git:
+
+```sh
+python custom/install-flux-klein.py --models-dir /path/to/ComfyUI/models
+export SASHA_WORKBENCH_COMFY_URL=http://127.0.0.1:8188
+export SASHA_WORKBENCH_IMAGE_MODEL=flux-klein4b
+```
+
+The installer verifies every SHA256 from [`models/flux-klein-4b.json`](models/flux-klein-4b.json); it does not install packages, start services or download a model implicitly through a chat request. The standalone default stays SDXL until you opt in.
+
+The recipe was measured on RTX 4060 8GB with other GPU services running, total24GB system RAM, ComfyUI `--lowvram --reserve-vram 1.0`, an 8GiB generator RAM cap and at most4CPU cores. Text512 cold and768 warm each took about37s on that machine; a512 reference jacket recolor took39s. A masked edit took44s and changed0RGB pixels outside the mask. These are individual samples, not universal speed or quality promises. Mask changes are cropped with context and composited exactly onto selected original pixels; an incomplete selection can leave the unselected parts of an object unchanged.

@@ -1,0 +1,26 @@
+[
+  {
+    "repo": "leejet/FLUX.2-klein-4B-GGUF",
+    "revision": "3b1f5a9dc3abb32238b053aeb3d823c30afdacbd",
+    "file": "flux-2-klein-4b-Q4_0.gguf",
+    "sha256": "d1023499ef3f2f82ff7c50e6778495195c1b6cc34835741778868428111f9ff4",
+    "size": 2460378560,
+    "folder": "unet"
+  },
+  {
+    "repo": "unsloth/Qwen3-4B-GGUF",
+    "revision": "22c9fc8a8c7700b76a1789366280a6a5a1ad1120",
+    "file": "Qwen3-4B-Q4_K_M.gguf",
+    "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a",
+    "size": 2497281312,
+    "folder": "text_encoders"
+  },
+  {
+    "repo": "Comfy-Org/flux2-klein-4B",
+    "revision": "5b3abca5c0dc1ecd4eaf3340868d09063fc1c965",
+    "file": "split_files/vae/flux2-vae.safetensors",
+    "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+    "size": 336211292,
+    "folder": "vae"
+  }
+]

@@ -191,3 +191,18 @@ def test_media_enabled_only_by_explicit_local_endpoint(tmp_path,monkeypatch):
 def test_reference_media_body_passes_bounded_middleware(client):
     response=client.post("/v1/media",json={"prompt":"cat","unused":"x"*700000})
     assert response.status_code==409,response.text[:200]
+
+
+def test_flux_klein_is_explicit_optin_not_an_automatic_download(tmp_path,monkeypatch):
+    monkeypatch.setenv('SASHA_WORKBENCH_DATA',str(tmp_path/'flux-data'))
+    monkeypatch.setenv('SASHA_WORKBENCH_PROJECTS',str(tmp_path/'flux-projects'))
+    monkeypatch.setenv('HUB_CHAT_TOKEN','synthetic-only-flux-token-for-offline-tests')
+    monkeypatch.setenv('SASHA_WORKBENCH_COMFY_URL','http://127.0.0.1:8188')
+    monkeypatch.setenv('SASHA_WORKBENCH_IMAGE_MODEL','flux-klein4b')
+    from hub_console import config,standalone
+    importlib.reload(config);importlib.reload(standalone)
+    with TestClient(standalone.create_app()) as c:
+        c.headers.update({'Authorization':'Bearer synthetic-only-flux-token-for-offline-tests','X-WebUI-User':'a'*64})
+        d=c.get('/v1/media').json();assert d['default_model']=='flux-klein4b'
+        model=next(m for m in d['models'] if m['id']=='flux-klein4b');assert model['available'] and model['instruction_edit']
+        assert set(model['modes'])=={'text','reference','inpaint'}
