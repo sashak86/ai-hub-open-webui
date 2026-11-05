@@ -1,6 +1,6 @@
 {
   "name": "Sasha AI Workbench for Open WebUI",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "date": "2026-11-05",
   "upstream": {
     "repository": "https://github.com/open-webui/open-webui",
@@ -16,7 +16,8 @@
     "portable_adapters": [
       "config.py",
       "agent_bridge.py",
-      "standalone.py"
+      "standalone.py",
+      "webui_password_reset.py"
     ],
     "portability_changes": [
       "Use current user home instead of private server paths.",
@@ -29,7 +30,10 @@
       "SDXL Lightning8 quality workflow and native Pipe image intents/files; optional resident-only local prompt translation, without changing provider context or retention.",
       "Single-reference SDXL img2img and mobile mask editor; local masked patch compositing preserves every unselected decoded RGB pixel; Pillow dependency pinned.",
       "Preflight creative model selector before image/reference/mask/video/document requests, explicit confirmation/cancel, availability-aware explanations; Qwen/Kontext/LaMa are not-installed information only.",
-      "Opt-in real FLUX.2 klein4B Q4 generation/instruction-reference editing; Qwen3-4B Q4 text encoder, Flux2VAE, pinned SHA256 installer. No 20B Qwen-Image-Edit installation. SDXL portable default retained until explicit model opt-in."
+      "Opt-in real FLUX.2 klein4B Q4 generation/instruction-reference editing; Qwen3-4B Q4 text encoder, Flux2VAE, pinned SHA256 installer. No 20B Qwen-Image-Edit installation. SDXL portable default retained until explicit model opt-in.",
+      "Optional native password recovery uses an explicit private configuration path, explicit native WebUI database and optional Hub Telegram paths; no server credentials included.",
+      "Accept high-resolution phone references with bounded model upload; retain source JPEG bytes instead of expanding to PNG in sidebar.",
+      "Force identity encoding for HTML navigation before injecting the password-recovery script."
     ],
     "brand_revision": "cf40bf34b7ce9d68966a5f625780d3681da711d3",
     "interactive_connectors_revision": "06b41381d3996d743ec1c3d526cbbfea25e88571",
@@ -42,7 +46,8 @@
       "weight_manifest": "models/flux-klein-4b.json",
       "sampling": "4step Euler,CFG1,Flux2Scheduler",
       "resource_cap": "8GiB RAM,4CPU cores on tested8vCPU host"
-    }
+    },
+    "media_photo_recovery_revision": "14f23f9"
   },
   "validation": {
     "offline_tests": 33,
@@ -56,7 +61,7 @@
       "backup_zip",
       "native_model_catalog"
     ],
-    "secret_scan": "gitleaks8.30.1: all37 portable source files, no leaks; ignored runtime configuration not included in publication",
+    "secret_scan": "gitleaks8.30.1 bridge/deploy/tests: no leaks; full custom scan flagged only three reviewed SHA256 manifest values for password-named source files, not credentials.",
     "production_modified_by_publication": false,
     "previous_integrated_backend_tests": 1029,
     "previous_integrated_backend_skipped": 1,
@@ -74,11 +79,14 @@
     "media_edit_offline_tests": 61,
     "media_edit_live": "RealSDXL1024reference24.21s;semanticmaskedrose24.44s outsidechanged0;nativePipeowner200foreign404;browserreload/mobile/touch2uploads/0JSerrors",
     "media_choice_server_tests": 37,
-    "portable_tests": 66,
+    "portable_tests": 78,
     "media_choice_native": "Installed composer confirmation/cancel and regeneration; selected SD1.5 actualPNG512/reload, selected Ollama9B actual document response verified by job descriptor; mobile390, no JS errors.",
     "media_quality_server_tests": 40,
     "flux_quality": "Real text512cold37.29s, text768warm37.31s, reference512jacket recolor39.34s; masked edit44.07s,0outside/18446insideRGB; actual owner nativecold76841.93srender/80.18stotal with RUtranslation,1job/reload/HTTP200/noJSerrors.",
-    "flux_installed_editor": "Actual owner GUI mask editor -> selected FLUX -> one inpaint job completed40.96s; outside0/changed1268RGB; other allowed account file404; no JS errors."
+    "flux_installed_editor": "Actual owner GUI mask editor -> selected FLUX -> one inpaint job completed40.96s; outside0/changed1268RGB; other allowed account file404; no JS errors.",
+    "password_recovery_backend_tests": 13,
+    "phone_photo_validation": "Real4928x6560JPEG accepted; model input576x768; original unchanged; Chromium390 sidebarPOST+attachment7191339BsameJPEG,mask632719B,0JSerrors,no model render submitted.",
+    "password_recovery_live": "Backend executor: configured native sign-in recovered UI checked on320/390; one-use/session/MFA/isolation tests synthetic; no real password changed."
   },
   "limitations": [
     "No model weight training. Learning notes require explicit acceptance to become skills.",
@@ -102,7 +110,7 @@
   "sha256": {
     "ARCHITECTURE.md": "e7d909256dc7303151324629ee6d2b20c490d22d7e2434ce561c44ee9164f523",
     "LICENSE": "e455100724a1703737534a58f9b6bf86fd355c802f7d2e38d73dcec14d79829f",
-    "README.md": "5e941171bb7c2b34901249e05efb624c6838926d33807a04bb68ae536bf35b3a",
+    "README.md": "9d649a31ecec945c7192df8b3e5d6ff75e5d59fd1df75572ccf18cc420f90ba0",
     "bridge/hub_console/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "bridge/hub_console/agent_bridge.py": "2496740a93ccfe026d218f21018f1f2162786bade11e5df52d2096aa01bc48b4",
     "bridge/hub_console/chat_addon_runtime.py": "bb24f46300b696affbf08dbed140a2f3a5046b8c992d0f4ae265f4f1385c252b",
@@ -119,7 +127,7 @@
     "bridge/hub_console/chat_worker.py": "16ff9c7d35fb5b44eadd4f9a66d6e969d41c8b5234bc595928f787f9efa666d1",
     "bridge/hub_console/chat_workspace.py": "986fe7e34bb328d3c74bfd2d6e8ff9b973cfba21527c7fd8b83b0f5e628ab366",
     "bridge/hub_console/config.py": "46d941f7bbbff7acb34378b3fe0e216ab5b67013f10d719510c1fbe6490f1b75",
-    "bridge/hub_console/standalone.py": "6dbfd3516b3a213324de39cdc4fc759c067c531fa1ffcabbdeb00901b224d0bb",
+    "bridge/hub_console/standalone.py": "86d0512a064a5d6e73a43425e91e0aaab8c93f726990745c1c88443899fe2d4a",
     "bridge/hub_console/system.py": "73c95541111145804a5c9cffd2dead16a979f94849117fbf0e00ad0b7063780d",
     "compose.yaml": "df662745ea4ef4f9dfe1758d431c0c1e976937eec8ec8588131490025bc983a9",
     "deploy/artifacts-ui.js": "d649cddc731a162cbe9e0d6ed2991dddca81cb59e33cca07e03b5529b9ea7101",
@@ -133,18 +141,22 @@
     "deploy/patch-webui-queue.py": "e590def2bb3a7afd6f2827ca14a22e9d09e830433465bc3a170e6cffaa0a0a01",
     "deploy/queue-store.js": "f197c10f5e9d70a18875e2313756ec61efca7893ae171314ba47cf88ff52c910",
     "prepare.py": "595d70bf12f7d1bcc99f91a8aa59e5820389f2c7beca0482e5db45d5baea6312",
-    "requirements.txt": "babc2a7fc5e698acca76ce1e692a439763aac16a1c96e7c15a1be1fac2e51344",
+    "requirements.txt": "b56d02c995ab52bb9c817a8d94805676b579b0cadbf84a1e728e1b042627ea23",
     "run-bridge.py": "0a15741844ed3062ba3305e83f9854f22368f3a3218994901bd1b44cba805402",
     "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tests/test_addons.py": "99830282121578fffa1268c2588b7b063d0a0ef702ded64d22fad9f3f7a71c27",
     "tests/test_artifacts.py": "d317c18a7294f50d8fa5b2fa5835e992b90d24199253c65585b2fccbb546ce19",
     "tests/test_connectors.py": "5a9c3d7d49cad90b51fe5b5a04f038e3697e9d89bab405b89e0116565d2539b1",
     "tests/test_harness.py": "1301e91604a651c374b61bf16d797be2a8e5e50edacb3519377fb9408cf6b1f1",
-    "tests/test_standalone.py": "a80f32adc0999882be011822a9f0bf7ee05ad96a2f8f737e9c603d769e6cfb0a",
+    "tests/test_standalone.py": "0413acfd645ac46c14fa50054e4a26be11d7dac8af43a9be2761dfb3344966da",
     "tests/test_workspace.py": "60c214e76f421a8861f1a2a04894bda2c15b0dbcfab5221f7c097a52ee3ffac2",
-    "tests/test_media_edit.py": "167ac1fd7a401860e40b4ef179091cf4d92703cb08941a964d2848c95dbc4e5f",
+    "tests/test_media_edit.py": "be4942c932cfaffb68041ef4be749a75f8ae318457694563620b1146d917bae7",
     "install-flux-klein.py": "3de1522c033d148128ad31db0bb34b864d91bb972af6ae102fbac025de8525cb",
     "models/flux-klein-4b.json": "c7b8327dae5c94dcbc98d9ad4e3657f029b4a3f108c39f7db4b9f6f937fa6732",
-    "tests/test_flux_klein.py": "e75c306d4800abe0ceedf2db3731248cb0ba53a92702fb2d5afbc2e24319e8c0"
+    "tests/test_flux_klein.py": "e75c306d4800abe0ceedf2db3731248cb0ba53a92702fb2d5afbc2e24319e8c0",
+    "bridge/hub_console/webui_password_reset.py": "ec9f81f4003f0b087113fd18ae1191f216ab7aed01b54895c45c0c3fb0202160",
+    "deploy/password-reset.js": "2320b572b20af646f299b0ebb63f45a2ca188bafd1bc2f54b3b6a445fd6519a5",
+    "tests/conftest.py": "47ea159af55acdfa165723a9164bdd8032a9fed3dd48e5fd269a381a2fb205c3",
+    "tests/test_password_reset.py": "a9384aa3c08596b54694b8673e272bab598a76c7f2af5080c996f132d388c5e6"
   }
 }

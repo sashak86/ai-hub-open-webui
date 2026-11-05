@@ -206,3 +206,18 @@ def test_flux_klein_is_explicit_optin_not_an_automatic_download(tmp_path,monkeyp
         d=c.get('/v1/media').json();assert d['default_model']=='flux-klein4b'
         model=next(m for m in d['models'] if m['id']=='flux-klein4b');assert model['available'] and model['instruction_edit']
         assert set(model['modes'])=={'text','reference','inpaint'}
+
+
+def test_password_reset_asset_options_and_uncompressed_html_injection(client,monkeypatch):
+    import httpx
+    seen=[]
+    async def upstream(request,**kwargs):
+        seen.append(request)
+        return httpx.Response(200,headers={'Content-Type':'text/html'},content=b'<html><head></head><body>Chat</body></html>',request=request)
+    monkeypatch.setattr(client.app.state.http,'send',upstream)
+    assert client.get('/ai-hub/auth/recovery/options').json()['configured'] is False
+    asset=client.get('/ai-hub/password-reset.js');assert asset.status_code==200
+    assert 'Забыли пароль?' in asset.text
+    page=client.get('/auth',headers={'Accept':'text/html','Accept-Encoding':'br,zstd,gzip'})
+    assert page.status_code==200 and '<script defer src="/ai-hub/password-reset.js"></script>' in page.text
+    assert seen[0].headers['accept-encoding']=='identity'

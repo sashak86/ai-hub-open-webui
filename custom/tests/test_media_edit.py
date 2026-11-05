@@ -36,3 +36,47 @@ def test_edit_graph_uses_reference_and_mask_without_arbitrary_graph():
     assert graph['12']['inputs']['channel']=='red'
     assert graph['5']['inputs']['denoise']==.7
     assert m.edit_workflow(j,'hat','owned.png')['5']['inputs']['denoise']==.7
+
+
+def test_phone_photo_over_old_limit_preserves_exif_oriented_source():
+    # The user's valid 4928x6560 JPEG was rejected as corrupt by the old 16 MP cap.
+    image=Image.new('RGB',(4928,6560),'navy');buffer=io.BytesIO()
+    exif=Image.Exif();exif[274]=6
+    image.save(buffer,'JPEG',exif=exif);image.close()
+    source=m.decode_image(base64.b64encode(buffer.getvalue()).decode())
+    assert source.size==(6560,4928) and source.mode=='RGB'
+    assert source.getpixel((0,0))[2]>=125
+    source.close()
+
+
+def test_input_pixel_guard_rejects_before_full_decode(monkeypatch):
+    class Header:
+        width=9000;height=9000;size=(9000,9000);format='PNG'
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def load(self):raise AssertionError('oversized image must not decode')
+    monkeypatch.setattr(m.Image,'open',lambda *_:Header())
+    with pytest.raises(HTTPException,match='64 мегапикселя'):
+        m.decode_image(base64.b64encode(b'header').decode())
+
+
+def test_unsupported_image_and_corruption_have_distinct_errors():
+    buffer=io.BytesIO();Image.new('RGB',(16,16)).save(buffer,'GIF')
+    with pytest.raises(HTTPException,match='Поддерживаются PNG'):
+        m.decode_image(base64.b64encode(buffer.getvalue()).decode())
+    with pytest.raises(HTTPException,match='повреждён'):
+        m.decode_image(base64.b64encode(b'not a photo').decode())
+
+
+@pytest.mark.asyncio
+async def test_large_reference_model_upload_is_bounded_and_original_untouched(tmp_path):
+    import httpx
+    source=Image.new('RGB',(4928,6560),'navy');source.save(tmp_path/'source.png');source.close()
+    original=(tmp_path/'source.png').read_bytes();seen=[]
+    class Upload:
+        async def post(self,url,files,data):
+            with Image.open(io.BytesIO(files['image'][1])) as im:seen.append(im.size)
+            return httpx.Response(200,json={'name':files['image'][0]},request=httpx.Request('POST','http://local/upload/image'))
+    await m.upload_inputs(Upload(),tmp_path,{'model':'flux-klein4b','mode':'reference','id':'test'})
+    assert seen and max(seen[0])<=768
+    assert (tmp_path/'source.png').read_bytes()==original

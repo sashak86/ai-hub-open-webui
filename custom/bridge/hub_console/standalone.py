@@ -96,6 +96,8 @@ def create_app():
     app=FastAPI(title='Sasha AI Workbench · Open WebUI',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
     app.add_middleware(RequestBodyLimit)
     app.state.settings=settings;app.state.chat_jobs_root=root/'chat-jobs'
+    from .webui_password_reset import install as install_password_reset
+    install_password_reset(app,settings)
     config=root/'bridge-config.json'
     comfy=os.environ.get('SASHA_WORKBENCH_COMFY_URL','').rstrip('/')
     image_model=os.environ.get('SASHA_WORKBENCH_IMAGE_MODEL','sdxl-lightning')
@@ -170,8 +172,15 @@ def create_app():
     async def proxy(request:Request,path:str):
         if path.startswith('v1/'):raise HTTPException(404,'Unknown bridge route')
         headers=[(k,v) for k,v in request.headers.raw if k.decode().lower() not in HOP]
+        if 'text/html' in request.headers.get('accept',''):
+            headers=[(k,v) for k,v in headers if k.lower()!=b'accept-encoding']
+            headers.append((b'accept-encoding',b'identity'))
         outgoing=app.state.http.build_request(request.method,upstream+'/'+path,params=request.query_params,headers=headers,content=request.stream())
         response=await app.state.http.send(outgoing,stream=True)
+        if response.status_code==200 and 'text/html' in response.headers.get('content-type','') and request.method=='GET':
+            content=await response.aread();await response.aclose()
+            content=content.replace(b'</head>',b'<script defer src="/ai-hub/password-reset.js"></script></head>',1)
+            return Response(content,media_type='text/html',headers={'Cache-Control':'no-store'})
         result=StreamingResponse(response.aiter_raw(),status_code=response.status_code,background=BackgroundTask(response.aclose))
         result.raw_headers=[(k,v) for k,v in response.headers.raw if k.decode().lower() not in HOP];return result
     @app.websocket('/{path:path}')

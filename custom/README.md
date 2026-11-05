@@ -177,3 +177,33 @@ export SASHA_WORKBENCH_IMAGE_MODEL=flux-klein4b
 The installer verifies every SHA256 from [`models/flux-klein-4b.json`](models/flux-klein-4b.json); it does not install packages, start services or download a model implicitly through a chat request. The standalone default stays SDXL until you opt in.
 
 The recipe was measured on RTX 4060 8GB with other GPU services running, total24GB system RAM, ComfyUI `--lowvram --reserve-vram 1.0`, an 8GiB generator RAM cap and at most4CPU cores. Text512 cold and768 warm each took about37s on that machine; a512 reference jacket recolor took39s. A masked edit took44s and changed0RGB pixels outside the mask. These are individual samples, not universal speed or quality promises. Mask changes are cropped with context and composited exactly onto selected original pixels; an incomplete selection can leave the unselected parts of an object unchanged.
+
+
+## Password recovery (optional administrator setup)
+
+Version 0.7.1 adds **Забыли пароль?** to the native sign-in page. Delivery is disabled until configured. Set `SASHA_WORKBENCH_PASSWORD_RESET_CONFIG` to a private JSON file (0600), and restart the standalone bridge after changing it. The administrator must map existing native Open WebUI user IDs to their verified recovery destination; supplying an email address or choosing Telegram in the form cannot create a binding.
+
+Example SMTP-only configuration (replace placeholders locally):
+
+```json
+{
+  "webui_db": "/absolute/path/to/shared-webui-data/webui.db",
+  "state_db": "/absolute/path/to/private/password-reset.db",
+  "accounts": {"EXISTING_WEBUI_USER_ID": {"email_enabled": true}},
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 465,
+    "from": "workbench@example.com",
+    "username": "workbench@example.com",
+    "password_file": "/absolute/path/to/private/smtp-password"
+  }
+}
+```
+
+`webui_db` must refer to the **same database used by the running WebUI container**, accessible for writing by the ordinary bridge user, including SQLite WAL files. The default Compose named volume is not automatically exposed to the host bridge; configure a shared bind mount and matching permissions if enabling recovery. Do not copy an unrelated database or run the bridge as root to bypass permissions. Existing installations remain unchanged until configured.
+
+The optional AI Hub Telegram adapter also requires explicit `hub_db`, `telegram_token_file`, and `accounts[WEBUI_USER_ID].hub_user_id`. It sends only to the unique private Telegram identity already bound to that enabled Hub user, never to a chat ID entered in the reset form. No Hub database, bot token, SMTP account, or owner mapping is included here.
+
+Recovery codes expire in 10 minutes, are stored hashed, and are one-use. Requests have IP/email rate limits and the same response for known and unknown accounts. Successful recovery replaces the password, revokes native session stamps, clears transient MFA challenges, and preserves the MFA secret. SMTP uses verified implicit TLS. For managed/OAuth-only accounts, use the identity provider's recovery flow.
+
+Phone JPEG references now accept up to 16 MiB / 64 MiPixels / 16384 pixels per side. Original bytes and EXIF orientation survive sidebar upload; the model still receives a bounded 768 px FLUX or 1024 px SDXL copy. These input limits do not promise improved face likeness or unlimited output size.

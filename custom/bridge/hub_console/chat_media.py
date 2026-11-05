@@ -100,15 +100,33 @@ def workflow(model,prompt,seed):
       '9':{'class_type':'SaveImage','inputs':{'images':['6',0],'filename_prefix':'workbench'}}}
 
 
+# Smartphone photographs commonly exceed 16 MP. The model receives a bounded
+# 768/1024 px copy in upload_inputs; keep the decoded original for exact masking.
+MAX_INPUT_PIXELS = 64 * 1024 * 1024
+MAX_INPUT_EDGE = 16384
+MAX_INPUT_BYTES = 16 * 1024 * 1024
+
+
 def decode_image(value,mask=False):
-    if not isinstance(value,str) or len(value)>22*1024*1024:raise HTTPException(422,'Изображение слишком большое (максимум 16 МБ)')
+    if not isinstance(value,str) or len(value)>4*((MAX_INPUT_BYTES+2)//3):
+        raise HTTPException(422,'Изображение слишком большое (максимум 16 МБ)')
     try:
         raw=base64.b64decode(value,validate=True)
+    except (ValueError,TypeError):
+        raise HTTPException(422,'Файл изображения повреждён. Загрузите PNG/JPEG/WebP повторно.') from None
+    if len(raw)>MAX_INPUT_BYTES:
+        raise HTTPException(422,'Изображение слишком большое (максимум 16 МБ)')
+    try:
         with Image.open(io.BytesIO(raw)) as im:
-            if im.width*im.height>16_777_216 or max(im.size)>4096:raise ValueError('dimensions')
-            if im.format not in {'PNG','JPEG','WEBP'}:raise ValueError('format')
+            if im.width*im.height>MAX_INPUT_PIXELS or max(im.size)>MAX_INPUT_EDGE:
+                raise HTTPException(422,'Изображение слишком большое: максимум 64 мегапикселя и 16384 пикселя по стороне')
+            if im.format not in {'PNG','JPEG','WEBP'}:
+                raise HTTPException(422,'Поддерживаются PNG, JPEG и WebP. Сохраните фото в одном из этих форматов.')
             im.load();return ImageOps.exif_transpose(im).convert('L' if mask else 'RGB')
-    except Exception:raise HTTPException(422,'Нужен корректный PNG/JPEG/WebP до 4096 пикселей и 16 мегапикселей') from None
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(422,'Файл изображения повреждён. Загрузите PNG/JPEG/WebP повторно.') from None
 
 def prepared_inputs(body):
     mode=body.get('mode','text')
