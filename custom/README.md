@@ -155,3 +155,9 @@ SDXL is a clear improvement over the earlier SD1.5 baseline on tested samples, n
 ## 0.6.0: reference and local mask editing
 
 Attach one PNG/JPEG/WebP and send `/image description` (or `/edit description`) for SDXL img2img. For a masked edit, attach a second same-sized black/white PNG named `mask.png`: white edits, black preserves. Use Images and video → selected area for the touch brush, strength, preview, or attach both files to the chat. Generated chat images include an Edit area button. Original dimensions are preserved; outside-mask decoded RGB pixels are unchanged exactly. This is masked SDXL img2img with crop context, not a dedicated face-identity or multi-reference model. One reference, up to16MiB/4096px/16MP. Source/mask are owner-private; unknown images/URLs and arbitrary workflows are rejected. Pillow12.0.0 is required in the bridge venv.
+
+## Model choice before creative requests (0.6.1)
+
+Explicit image generation, reference/mask edits and document creation/editing in the chat open a model dropdown before execution. The available local model is recommended automatically; the circled question mark explains the recommendation and limitations. Canceling starts no provider request. The same confirmation is used by the image editor and simple image animation. Documents use a selected text/CLI model; a text-only API model cannot promise file tools.
+
+Qwen Image Edit, FLUX.1 Kontext dev and LaMa are informational, unavailable entries, not bundled engines. No new weights are installed by this release. SDXL img2img does not preserve face identity or reliably turn a selfie into a complex scene. LaMa is a non-diffusion masked object-removal/background-fill option, not a general prompt-based editor. Exact unselected RGB pixels remain protected by patch compositing in the existing masked editing path. Neural video is still unconfigured; existing MP4 animation is only a camera pan/zoom.

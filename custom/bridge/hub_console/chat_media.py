@@ -28,9 +28,12 @@ from .chat_jobs import owner_id as chat_owner_id, directory
 
 TERMINAL={'completed','failed','cancelled','interrupted'}
 MODELS={
- 'sdxl-lightning':dict(name='SDXL Lightning 8 · локально',kind='image',width=1024,height=1024,checkpoint='sdxl_lightning_8step.safetensors',notes='SDXL1024px,8шагов. Официальный ByteDancecheckpoint; качество выше базовойSD1.5, но текст/сложные руки и композиции не гарантируются.'),
+ 'sdxl-lightning':dict(name='SDXL Lightning 8 · локально',kind='image',width=1024,height=1024,checkpoint='sdxl_lightning_8step.safetensors',notes='Быстрая локальная SDXL, 1024px, 8 шагов. Лучше базовой SD1.5 для простых сцен. Img2img переносит композицию, но не сохраняет личность и плохо перестраивает селфи в сцену с несколькими людьми. Не модель точного следования сложным инструкциям.'),
  'sd15':dict(name='SD1.5 · прежняя базовая',kind='image',width=512,height=512,checkpoint='v1-5-pruned-emaonly.safetensors',notes='Базовая модель для первого запуска. Хуже современных моделей понимает сложные запросы и текст на картинке.'),
  'krea2':dict(name='Krea 2 Turbo Q3 · локально',kind='image',width=768,height=768,notes='Требует больше оперативной памяти для текстового энкодера.'),
+ 'qwen-image-edit':dict(name='Qwen Image Edit · не установлен',kind='image',available=False,notes='20B, редактирование по текстовым инструкциям и референсам. Перспективнее SDXL img2img для смысловых изменений. Нужны отдельная установка и проверка памяти; текущий движок не поддерживает эту модель.'),
+ 'flux-kontext':dict(name='FLUX.1 Kontext dev · не установлен',kind='image',available=False,notes='12B flow matching, редактирование изображений по инструкции. Нужны веса, совместимый движок и проверка памяти. Не гарантирует неизменность пикселей вне маски.'),
+ 'lama':dict(name='LaMa · удаление объектов · не установлен',kind='image',available=False,notes='Недиффузионная Fourier-сеть: удаляет объекты и восстанавливает фон по маске. Не добавляет произвольные объекты по текстовому промпту. Вне маски исходник нужно сохранять точным наложением патча.'),
  'wan13b':dict(name='Wan2.1 1.3B · видео',kind='video',available=False,notes='Не настроен: веса и проверка памяти/совместимости ещё не выполнены. V100 пока не установлена.'),
 }
 
@@ -300,7 +303,7 @@ def install(app,owner_setup):
     async def catalog(request:Request):
         owner_setup(request);owner_id(request);cfg=config(request)
         enabled=cfg.get('enabled',False)
-        models=[dict(v,id=k,available=enabled and k in cfg.get('models',[])) for k,v in MODELS.items()]
+        models=[dict(v,id=k,available=enabled and v.get('available',True) and k in cfg.get('models',[])) for k,v in MODELS.items()]
         return {'enabled':enabled,'default_model':cfg.get('default_model','sd15'),'animation_available':enabled and bool(shutil.which('ffmpeg')),'models':models,'jobs':[summary(j) for j in listing(request)],'notes':'Локальная генерация. Запросы и результаты хранятся у владельца; облачная оплата не используется.'}
     @app.post('/v1/media')
     async def create(request:Request):
@@ -317,7 +320,7 @@ def install(app,owner_setup):
         if isinstance(strength,bool) or not isinstance(strength,(int,float)) or not 0.1<=strength<=1:raise HTTPException(422,'Сила изменения: от 0.1 до 1')
         model=body.get('model',cfg.get('default_model','sd15'));prompt=text(body.get('prompt',''),1000).strip()
         if not prompt:raise HTTPException(422,'Введите описание изображения')
-        if not cfg.get('enabled') or model not in cfg.get('models',[]) or model not in MODELS or MODELS[model]['kind']!='image':raise HTTPException(409,'Выбранный генератор не подключён')
+        if not cfg.get('enabled') or model not in cfg.get('models',[]) or model not in MODELS or MODELS[model]['kind']!='image' or MODELS[model].get('available') is False:raise HTTPException(409,'Выбранный генератор не подключён')
         if mode!='text' and model not in {'sd15','sdxl-lightning'}:raise HTTPException(422,'Редактирование доступно для SDXL и SD1.5')
         seed=body.get('seed',int(time.time())%2**32)
         if isinstance(seed,bool) or not isinstance(seed,int) or not 0<=seed<2**32:raise HTTPException(422,'Некорректный seed')

@@ -18,7 +18,8 @@ def test_explicit_image_intent(pipe,value):assert pipe.image_intent(value)
 @pytest.mark.parametrize('value',['не рисуй кота','объясни как нарисовать кота','"нарисуй кота"','```\nнарисуй кота\n```','создай проект','как сгенерировать изображение','что означает слово нарисуй'])
 def test_normal_or_quoted_text_is_not_image(pipe,value):assert pipe.image_intent(value) is None
 
-def test_native_pipe_returns_real_image_without_text_model_call(pipe,tmp_path,monkeypatch):
+@pytest.mark.parametrize('chosen',[None,'sd15'])
+def test_native_pipe_returns_real_image_without_text_model_call(pipe,tmp_path,monkeypatch,chosen):
     records={};uploads=[];calls=[];posts=[];events=[]
     class Files:
         @staticmethod
@@ -34,7 +35,7 @@ def test_native_pipe_returns_real_image_without_text_model_call(pipe,tmp_path,mo
     job={'id':'1'*32,'model':'sdxl-lightning','width':1024,'height':1024,'created_at':1,'started_at':2,'finished_at':3,'message':'Готово','status':'completed'}
     async def handler(req):
         calls.append(req.url.path)
-        if req.url.path=='/v1/media' and req.method=='GET':return httpx.Response(200,json={'default_model':'sdxl-lightning','models':[{'id':'sdxl-lightning','name':'SDXL Lightning 8'}]})
+        if req.url.path=='/v1/media' and req.method=='GET':return httpx.Response(200,json={'default_model':'sdxl-lightning','models':[{'id':'sdxl-lightning','name':'SDXL Lightning 8'},{'id':'sd15','name':'SD1.5','available':True}]})
         if req.url.path=='/v1/media' and req.method=='POST':
             import json
             posts.append(json.loads(req.content));return httpx.Response(200,json=job)
@@ -44,10 +45,12 @@ def test_native_pipe_returns_real_image_without_text_model_call(pipe,tmp_path,mo
     async def run():
         async def emit(event):events.append(event)
         body={'model':'ai_hub.codex/gpt-6.1-sol','messages':[{'role':'user','content':'нарисуй a portrait'}]}
+        if chosen:body['hub_media_model']=chosen
         args=dict(__user__={'id':'owner'},__metadata__={'chat_id':'chat','message_id':'msg'},__event_emitter__=emit)
         first=''.join([x async for x in p.pipe(body,**args)]);second=''.join([x async for x in p.pipe(body,**args)]);return first,second
     a,b=asyncio.run(run());assert a==b and '![Сгенерированное изображение](/api/v1/files/' in a and '1024×1024' in a
     assert len(records)==1 and len(uploads)==1
+    assert posts[0]['model']==(chosen or 'sdxl-lightning')
     assert posts[0]['client_request_id']==posts[1]['client_request_id'] and posts[0]['prompt']=='a portrait'
     assert all(not path.startswith('/v1/jobs') for path in calls)
     assert events[-1]['data']['done'] is True
@@ -65,6 +68,15 @@ def test_provider_reason_is_visible_for_both_bridge_and_portable_errors(pipe):
 
 
 def test_edit_imperative_needs_image(pipe):
-    assert pipe.image_intent("исправь цвет рубашки",True)
-    assert pipe.image_intent("исправь ошибку") is None
-    assert pipe.image_intent("/edit a red flower")=="a red flower"
+    assert pipe.image_intent('исправь цвет рубашки',True)
+    assert pipe.image_intent('исправь ошибку') is None
+    assert pipe.image_intent('/edit a red flower')=='a red flower'
+
+
+def test_unconnected_selected_generator_does_not_submit(pipe,monkeypatch):
+    async def handler(req):
+        assert req.method=='GET'
+        return httpx.Response(200,json={'default_model':'sdxl-lightning','models':[{'id':'sdxl-lightning','available':True},{'id':'qwen-image-edit','available':False}]})
+    p=pipe.Pipe();monkeypatch.setattr(p,'client',lambda:httpx.AsyncClient(base_url='http://bridge',transport=httpx.MockTransport(handler)))
+    async def run():return ''.join([x async for x in p.pipe({'model':'ai_hub.codex/test','hub_media_model':'qwen-image-edit','messages':[{'role':'user','content':'нарисуй a cat'}]},__user__={'id':'owner'},__metadata__={'chat_id':'a','message_id':'b'})])
+    assert 'не подключена' in asyncio.run(run())
